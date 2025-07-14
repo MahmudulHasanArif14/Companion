@@ -1,4 +1,5 @@
 import 'package:companion/Screens/login_page.dart';
+import 'package:companion/Screens/registration_page.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
@@ -159,6 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                         onPressed: () {
                           // Navigate to Registration Page
+                          Navigator.push(context, MaterialPageRoute(builder: (context)=>RegistrationPage()));
                         },
                         child: Text(
                           "Get Started",

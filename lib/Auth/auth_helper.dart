@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:app_links/app_links.dart';
+import 'package:companion/Screens/dashboard.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supaBase;
 
+import '../Screens/email_verification.dart';
+import '../core/utils/username_generator.dart';
 import '../widgets/custom_snackbar.dart';
 
 class OauthHelper {
@@ -39,15 +43,18 @@ class OauthHelper {
 
       // If not Email Verified goto verificationPage
       if (res.user != null && res.user?.emailConfirmedAt == null) {
+
+
+
         // Navigate to Verification Page
         if (context.mounted) {
-          // Navigator.push(
-          //   context,
-          //   MaterialPageRoute(
-          //     builder: (context) =>
-          //         VerificationPage(user: res.user, phone: fullPhoneNumber),
-          //   ),
-          // );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  EmailVerification(user: res.user,),
+            ),
+          );
         }
       }
     } on supaBase.AuthException catch (e) {
@@ -56,6 +63,44 @@ class OauthHelper {
       }
     }
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Future<String> getUniqueUsername(String baseName) async {
+    String username = UsernameGenerator.generateUsername(baseName);
+
+    final res = await supabaseInstance
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .maybeSingle();
+
+    if (res != null) {
+      // Try again recursively or add a new suffix
+      return getUniqueUsername(baseName);
+    } else {
+      return username;
+    }
+  }
+
+
+
+
+
+
+
+
 
   //   Send Verification Link to the user again
   static Future<void> sendVerificationEmail(BuildContext context) async {
@@ -92,10 +137,10 @@ class OauthHelper {
   static int retryCount = 0;
 
   Future<void> logIn(
-      BuildContext context,
-      String email,
-      String password,
-      ) async {
+    BuildContext context,
+    String email,
+    String password,
+  ) async {
     try {
       final supaBase.AuthResponse res = await supabaseInstance.auth
           .signInWithPassword(email: email, password: password);
@@ -108,7 +153,6 @@ class OauthHelper {
         String? lastName = nameStatus!.isNotEmpty
             ? nameStatus.last
             : res.session?.user.email?.split('@').first;
-
       }
     } on supaBase.AuthException catch (error) {
       retryCount++;
@@ -127,13 +171,32 @@ class OauthHelper {
     }
   }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   //Login With Google Provider
   Future<void> loginWithGoogle(BuildContext context) async {
     try {
       const webClientId =
-          '1086961716031-mu5did4abp5br146us1ss84qa6ul21am.apps.googleusercontent.com';
+          '18273045377-7d750eivj60k4earmrpvfavhhr8moknf.apps.googleusercontent.com';
       const iosClientId =
-          '1086961716031-rb3fiiso5bv1954iqaccroagd58h6rsk.apps.googleusercontent.com';
+          '18273045377-invvss9kmflaa0bed52aijqtp224a3m1.apps.googleusercontent.com';
 
       final GoogleSignIn googleSignIn = GoogleSignIn(
         clientId: iosClientId,
@@ -164,6 +227,8 @@ class OauthHelper {
         return;
       }
 
+      final supaBase.User user;
+
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
         final response = await supabaseInstance.auth.signInWithIdToken(
           provider: supaBase.OAuthProvider.google,
@@ -171,15 +236,27 @@ class OauthHelper {
           accessToken: accessToken,
         );
         if (context.mounted) {
-          final name = response.user!.userMetadata?['name']
-              .toString()
-              .trim()
-              .split(' ');
-          String? lastName = name!.isNotEmpty
-              ? name.last
-              : response.session?.user.email?.split('@').first;
+
+          if(response.user!=null){
+             user = supabaseInstance.auth.currentUser!;
 
 
+
+
+            // store UniqueUserName
+            final displayName = user.userMetadata?['full_name'] ?? 'user';
+
+            final uniqueUsername = await getUniqueUsername(displayName);
+
+// Store it in your profiles table
+            await supabaseInstance.from('profiles').update({
+              'username': uniqueUsername,
+            }).eq('id', user.id);
+
+          }
+          else {
+            return;
+          }
         }
       }
       // for Web
@@ -187,13 +264,33 @@ class OauthHelper {
         await supabaseInstance.auth.signInWithOAuth(
           supaBase.OAuthProvider.google,
         );
+
       }
+
+
+      if(context.mounted){
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => Dashboard(user:currentUser(),)),
+              (Route<dynamic> route) => false,
+        );
+      }
+
+
+
     } on supaBase.AuthException catch (e) {
       if (context.mounted) {
         CustomSnackbar.show(context: context, label: e.message);
+        print(e.message);
       }
     }
   }
+
+
+
+  // end
+
+
 
   static int resetSend = 0;
 
@@ -247,7 +344,7 @@ class OauthHelper {
     final appLinks = AppLinks();
 
     appLinks.uriLinkStream.listen(
-          (Uri? uri) {
+      (Uri? uri) {
         if (uri == null) return;
 
         if (kDebugMode) {
@@ -282,9 +379,9 @@ class OauthHelper {
   //update password
 
   static Future<void> updatePassword(
-      String newPassword,
-      BuildContext context,
-      ) async {
+    String newPassword,
+    BuildContext context,
+  ) async {
     final supabase = supaBase.Supabase.instance.client;
 
     try {
@@ -303,9 +400,7 @@ class OauthHelper {
         }
 
         // Password updated successfully
-        if (context.mounted) {
-
-        }
+        if (context.mounted) {}
       } else {
         // Handle error
         if (context.mounted) {
@@ -332,7 +427,7 @@ class OauthHelper {
       final supabase = supaBase.Supabase.instance.client;
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-        // Provider.of<DatabaseHelperProvider>(context, listen: false).clearData();
+      // Provider.of<DatabaseHelperProvider>(context, listen: false).clearData();
       await supabase.auth.signOut();
     } catch (e) {
       debugPrint('Sign-out error: $e');
@@ -350,9 +445,9 @@ class OauthHelper {
     return session != null && user != null;
   }
 
-  static supaBase.User currentUser() {
+  static supaBase.User? currentUser() {
     final supabase = supaBase.Supabase.instance.client;
-    final user = supabase.auth.currentUser;
-    return user!;
+    return supabase.auth.currentUser;
   }
+
 }

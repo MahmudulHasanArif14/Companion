@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../Auth/auth_helper.dart';
+import '../widgets/custom_snackbar.dart';
 import '../widgets/custom_textformfield.dart';
-import 'dashboard.dart';
 
 class CreatePassword extends StatefulWidget {
-  const CreatePassword({super.key});
+  final String fullName,emailAddress;
+  const CreatePassword({super.key, required this.fullName, required this.emailAddress});
 
   @override
   State<CreatePassword> createState() => _CreatePasswordState();
@@ -31,14 +33,14 @@ class _CreatePasswordState extends State<CreatePassword>
     });
 
     _shakeController = AnimationController(
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
 
     _shakeAnimation = Tween<double>(
       begin: 0,
-      end: 10,
-    ).chain(CurveTween(curve: Curves.elasticIn)).animate(_shakeController);
+      end: 12,
+    ) .chain(CurveTween(curve: Curves.easeInOut)).animate(_shakeController);
   }
 
   @override
@@ -64,6 +66,31 @@ class _CreatePasswordState extends State<CreatePassword>
     _shakeController.forward(from: 0);
   }
 
+
+
+
+  final OauthHelper _authHelper = OauthHelper();
+
+  void _registerUser(String email,String password,String name) async {
+
+    if (email.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
+      await _authHelper.signUp(
+        email: email,
+        password: password,
+        context: context,
+        name: name,
+      );
+
+
+    } else {
+      CustomSnackbar.show(
+        context: context,
+        label: "Email And Password Can't be Null",
+      );
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -71,6 +98,10 @@ class _CreatePasswordState extends State<CreatePassword>
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xff4169e1),
+      appBar: AppBar(
+        automaticallyImplyLeading: true,
+        forceMaterialTransparency: true,
+      ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
@@ -86,6 +117,7 @@ class _CreatePasswordState extends State<CreatePassword>
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
                         "Step 3 of 3",
@@ -177,41 +209,44 @@ class _CreatePasswordState extends State<CreatePassword>
                         ],
                       ),
                       SizedBox(height: size.height * 0.25),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: (isLengthValid && isPatternValid)
-                              ? const Color(0xffffc146)
-                              : Colors.white,
-                          foregroundColor: Colors.black87,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 36,
-                            vertical: 16,
+                      Center(
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xffffc146),
+                              foregroundColor: Colors.black87,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 36,
+                                vertical: 16,
+                              ),
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              elevation:   4,
+                              shadowColor: Colors.black54,
+                            ),
+                            onPressed: (isLengthValid && isPatternValid)
+                                ? () {
+                                    if (_formKey.currentState!.validate()) {
+
+
+
+                                      _registerUser(widget.emailAddress.trim(),passwordController.text.trim(),widget.fullName.trim());
+
+
+                                    }
+                                  }
+                                : () {
+                                    _triggerShake();
+                                  },
+                            child: const Text("Continue"),
                           ),
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          elevation: (isLengthValid && isPatternValid) ? 4 : 0,
-                          shadowColor: Colors.black54,
                         ),
-                        onPressed: (isLengthValid && isPatternValid)
-                            ? () {
-                                if (_formKey.currentState!.validate()) {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const Dashboard(),
-                                    ),
-                                  );
-                                }
-                              }
-                            : () {
-                                _triggerShake();
-                              },
-                        child: const Text("Continue"),
                       ),
                     ],
                   ),

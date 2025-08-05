@@ -1,5 +1,6 @@
 import 'package:companion/Screens/login_password.dart';
 import 'package:flutter/material.dart';
+import '../Auth/auth_helper.dart';
 import '../widgets/custom_textformfield.dart';
 
 class LoginPage extends StatefulWidget {
@@ -27,6 +28,8 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+
+  // on widget tree dispose dispose all controller
   @override
   void dispose() {
     emailController.removeListener(validateEmail);
@@ -46,11 +49,13 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
+
   @override
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
 
     return Scaffold(
+
       resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xff4169e1),
       body: GestureDetector(
@@ -142,8 +147,9 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         onPressed: isEmailValid
                             ? () {
+
                           if (_formKey.currentState!.validate()) {
-                            Navigator.push(context, MaterialPageRoute(builder: (context)=>LoginPassword()));
+                            Navigator.push(context, MaterialPageRoute(builder: (context)=>LoginPassword(emailAddress: emailController.text,)));
                           }
                         } : null,
                         child: const Row(
@@ -175,8 +181,9 @@ class _LoginPageState extends State<LoginPage> {
                           elevation: 4 ,
                           shadowColor: Colors.black54,
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                          // Google sign_in
+                           await OauthHelper().loginWithGoogle(context);
                         } ,
                         child: Row(
                           mainAxisSize: MainAxisSize.max,

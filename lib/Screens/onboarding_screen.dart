@@ -3,16 +3,54 @@ import 'package:companion/Screens/registration_page.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
+import '../Auth/auth_helper.dart';
+import 'dashboard.dart';
+
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  _OnboardingScreenState createState() => _OnboardingScreenState();
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _currentIndex = 0;
+
+  // Navigating to Login Page
+  void _navigateToLoginPage() async {
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+
+    final bool isLoggedIn = OauthHelper.isUserLoggedIn();
+
+    late final Widget destination;
+
+    if (!isLoggedIn) {
+      destination = const OnboardingScreen();
+    } else {
+      destination = Dashboard(user: OauthHelper.currentUser());
+    }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => destination,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation.drive(
+              Tween(
+                begin: 0.0,
+                end: 1.0,
+              ).chain(CurveTween(curve: Curves.bounceIn)),
+            ),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
 
   // Onboarding Screen Contexts
   final List<Map<String, String>> _pages = [
@@ -160,7 +198,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                         onPressed: () {
                           // Navigate to Registration Page
-                          Navigator.push(context, MaterialPageRoute(builder: (context)=>RegistrationPage()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => RegistrationPage(),
+                            ),
+                          );
                         },
                         child: Text(
                           "Get Started",
@@ -171,9 +214,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       GestureDetector(
                         onTap: () {
                           // Navigate to login
-                          Navigator.push(context, MaterialPageRoute(builder:(context){
-                           return LoginPage();
-                          }));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) {
+                                return LoginPage();
+                              },
+                            ),
+                          );
                         },
                         child: RichText(
                           text: TextSpan(
@@ -181,16 +229,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             style: TextStyle(
                               color: isDark ? Colors.white : Colors.black,
                             ),
-                            children:[
+                            children: [
                               TextSpan(
                                 text: 'Login',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
                               ),
-
                             ],
                           ),
-                        )
-
+                        ),
                       ),
                       SizedBox(height: 20),
                     ],

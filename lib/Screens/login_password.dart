@@ -1,10 +1,12 @@
-import 'package:companion/Screens/dashboard.dart';
 import 'package:flutter/material.dart';
 
+import '../Auth/auth_helper.dart';
 import '../widgets/custom_textformfield.dart';
+import 'dashboard.dart';
 
 class LoginPassword extends StatefulWidget {
-  const LoginPassword({super.key});
+  final String emailAddress;
+  const LoginPassword({super.key, required this.emailAddress});
 
   @override
   State<LoginPassword> createState() => _LoginPasswordState();
@@ -21,7 +23,6 @@ class _LoginPasswordState extends State<LoginPassword> {
   void initState() {
     super.initState();
     passwordController.addListener(validatePass);
-
     // Auto focus when page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       passwordFocusNode.requestFocus();
@@ -46,6 +47,53 @@ class _LoginPasswordState extends State<LoginPassword> {
       isPassValid = isValid;
     });
   }
+
+
+  // Login Functionality
+  void _loginUser(String email, BuildContext context,String password) {
+    final authHelper = OauthHelper();
+    authHelper.logIn(context, email, password);
+
+
+
+
+    final user = OauthHelper.currentUser();
+    if (user == null) {
+      return;
+
+
+    } else {
+      //   after login go to direct Dashboard
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => Dashboard(user:user)),
+            (Route<dynamic> route) => false,
+      );
+    }
+
+
+
+
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -151,11 +199,12 @@ class _LoginPasswordState extends State<LoginPassword> {
                             ? () {
                                 if (_formKey.currentState!.validate()) {
 
-                                  Navigator.pushAndRemoveUntil(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => Dashboard()),
-                                        (Route<dynamic> route) => false,
-                                  );
+
+
+                                  _loginUser(widget.emailAddress, context,passwordController.text.trim());
+
+
+
 
 
                                 }

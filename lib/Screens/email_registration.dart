@@ -4,7 +4,8 @@ import '../widgets/custom_textformfield.dart';
 import 'create_password.dart';
 
 class EmailRegistration extends StatefulWidget {
-  const EmailRegistration({super.key});
+  final String fullName;
+  const EmailRegistration({super.key, required this.fullName});
 
   @override
   State<EmailRegistration> createState() => _EmailRegistrationState();
@@ -53,6 +54,10 @@ class _EmailRegistrationState extends State<EmailRegistration> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xff4169e1),
+      appBar: AppBar(
+        automaticallyImplyLeading: true,
+        forceMaterialTransparency: true,
+      ),
       body: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: SafeArea(
@@ -145,10 +150,13 @@ class _EmailRegistrationState extends State<EmailRegistration> {
                         onPressed: isEmailValid
                             ? () {
                                 if (_formKey.currentState!.validate()) {
+                                  String emailAddress=emailController.text;
+
+
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => CreatePassword(),
+                                      builder: (context) => CreatePassword(fullName: widget.fullName, emailAddress: emailAddress,),
                                     ),
                                   );
                                 }

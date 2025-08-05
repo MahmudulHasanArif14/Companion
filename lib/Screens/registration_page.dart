@@ -133,9 +133,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         ),
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
+                            String fullName='${firstName.text} ${lastName.text}';
+
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) =>  EmailRegistration()),
+                              MaterialPageRoute(builder: (context) =>  EmailRegistration(fullName: fullName,)),
                             );
                           }
                         },

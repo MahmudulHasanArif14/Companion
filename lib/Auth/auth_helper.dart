@@ -74,6 +74,28 @@ class OauthHelper {
 
 
 
+  Future<void> setUsernameOnce({required String defaultUsername}) async {
+    final supabase = supaBase.Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+
+    if (user == null) return;
+
+    final profileData = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    final existingUsername = profileData?['username'];
+
+    if (existingUsername == null || existingUsername.toString().isEmpty) {
+      final randomUsername = await getUniqueUsername(defaultUsername);
+
+      await supabase.from('profiles').update({
+        'username': randomUsername,
+      }).eq('id', user.id);
+    }
+  }
 
 
 
@@ -246,12 +268,9 @@ class OauthHelper {
             // store UniqueUserName
             final displayName = user.userMetadata?['full_name'] ?? 'user';
 
-            final uniqueUsername = await getUniqueUsername(displayName);
+            await setUsernameOnce(defaultUsername: displayName);
 
-// Store it in your profiles table
-            await supabaseInstance.from('profiles').update({
-              'username': uniqueUsername,
-            }).eq('id', user.id);
+
 
           }
           else {

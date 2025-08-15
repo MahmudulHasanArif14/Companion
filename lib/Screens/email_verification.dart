@@ -42,19 +42,8 @@ class _EmailVerificationState extends State<EmailVerification> {
           // store UniqueUserName
           final displayName = updatedUser.userMetadata?['full_name'] ?? 'user';
 
-          final uniqueUsername =await OauthHelper().getUniqueUsername(displayName);
+          await OauthHelper().setUsernameOnce(defaultUsername: displayName);
 
-          print(uniqueUsername);
-
-          try{
-
-            // Store it in your profiles table
-            await Supabase.instance.client.from('profiles').update({
-              'username': uniqueUsername,
-            }).eq('id', updatedUser.id);
-          }catch(e){
-            print("error inserting data $e");
-          }
 
 
             //   Navigate to Consent Screen

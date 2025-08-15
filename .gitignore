@@ -151,6 +151,9 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/supabase/functions/service-account.json
+/assets/images/credentials.json
+
 
 # Symbolication related
 app.*.symbols

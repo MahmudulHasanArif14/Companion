@@ -1,3 +1,4 @@
+import 'package:companion/Services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -5,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../Services/geolocation.dart';
+import '../Services/get_Service_key.dart';
 import 'companionsscreen.dart';
 
 class Dashboard extends StatefulWidget {
@@ -37,10 +39,16 @@ class _DashboardState extends State<Dashboard> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+    NotificationService().registerDeviceToken();
+
+    });
     getCurrentAddressName();
   }
 
   Future<void> getCurrentAddressName() async {
+
+
     try {
       currentCoordinates = await LocationHelper().determinePosition(context);
       if (currentCoordinates != null) {
@@ -129,7 +137,13 @@ class _DashboardState extends State<Dashboard> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.settings, size: 30, color: Colors.black87),
-                  onPressed: () {},
+                  onPressed: () async {
+                  //
+                    print(await GetServiceKey().getServiceKey());
+
+
+
+                  },
                 ),
                 Positioned(
                   top: 8,

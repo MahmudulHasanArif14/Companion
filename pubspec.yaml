@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_native_splash: ^2.4.6
   lottie: ^3.3.1
-  firebase_core: ^3.15.1
+  firebase_core: ^4.0.0
   supabase_flutter: ^2.9.1
   flutter_svg: ^2.2.0
   shared_preferences: ^2.5.3
@@ -51,8 +51,15 @@ dependencies:
   geolocator: ^14.0.2
   geocoding: ^4.0.0
   flutter_typeahead: ^5.2.0
+  firebase_messaging: ^16.0.0
+  flutter_local_notifications: ^19.4.0
+  app_settings: ^6.1.1
+  googleapis_auth: ^2.0.0
+  http: ^1.5.0
+  firebase_analytics: ^12.0.0
 
 dev_dependencies:
+  flutter_launcher_icons: "^0.14.4"
   flutter_test:
     sdk: flutter
 
@@ -63,6 +70,27 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
 
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/launcher_icon.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  web:
+    generate: true
+    image_path: "assets/images/launcher_icon.png"
+    background_color: "#ffffff"
+    theme_color: "#000000"
+  windows:
+    generate: true
+    image_path: "assets/images/launcher_icon.png"
+    icon_size: 48 # min:48, max:256, default: 48
+  macos:
+    generate: true
+    image_path: "assets/images/launcher_icon.png"
+
+
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -71,6 +99,7 @@ flutter:
   #images
   assets:
     - assets/images/
+    - assets/images/credentials.json
     - .env
 
 

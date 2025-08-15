@@ -1,20 +1,76 @@
+import 'package:companion/Auth/auth_helper.dart';
+import 'package:companion/Screens/pending_friend_req.dart';
 import 'package:flutter/material.dart';
-
 import 'add_companion.dart';
-//import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class CompanionsScreen extends StatelessWidget {
+class CompanionsScreen extends StatefulWidget {
   const CompanionsScreen({super.key});
 
   @override
+  State<CompanionsScreen> createState() => _CompanionsScreenState();
+}
+
+class _CompanionsScreenState extends State<CompanionsScreen> {
+  final supabase = Supabase.instance.client;
+  List<Map<String, dynamic>> _friends = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFriends();
+  }
+
+  Future<void> _fetchFriends() async {
+    final currentUserId = OauthHelper.currentUser()!.id;
+
+    try {
+      final response = await supabase
+          .from('friends')
+          .select('user_id_1, user_id_2, can_share_location, '
+          'profiles!friends_user_id_2_fkey(id, username, full_name, avatar_url)')
+          .or('user_id_1.eq.$currentUserId,user_id_2.eq.$currentUserId');
+
+      List<Map<String, dynamic>> friendsList = [];
+
+      for (var row in response) {
+        Map<String, dynamic> friendProfile;
+        if (row['user_id_1'] == currentUserId) {
+          friendProfile = row['profiles']; // user_id_2 profile
+        } else {
+          final profileRes = await supabase
+              .from('profiles')
+              .select('id, username, full_name, avatar_url')
+              .eq('id', row['user_id_1'])
+              .single();
+          friendProfile = profileRes;
+        }
+
+        friendsList.add({
+          'id': friendProfile['id'],
+          'username': friendProfile['username'],
+          'full_name': friendProfile['full_name'],
+          'avatar_url': friendProfile['avatar_url'],
+          'can_share_location': row['can_share_location'],
+        });
+      }
+
+      setState(() {
+        _friends = friendsList;
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching friends: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final companions = [
-      {'name': 'Jane Hawkins', 'email': 'janehawkins@demo.com', 'avatar': 'assets/avatars/avatar1.png'},
-      {'name': 'Brooklyn Simmons', 'email': 'brooklynsimmons@demo.com', 'avatar': 'assets/avatars/avatar2.png'},
-      {'name': 'Leslie Alexander', 'email': 'lesliealexander@demo.com', 'avatar': 'assets/avatars/avatar3.png'},
-      {'name': 'Ronald Richards', 'email': 'ronaldrichards@demo.com', 'avatar': 'assets/avatars/avatar4.png'},
-      {'name': 'Jenny Wilson', 'email': 'jennywilson@demo.com', 'avatar': 'assets/avatars/avatar5.png'},
-    ];
+    final currentUserId = OauthHelper.currentUser()!.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -30,10 +86,35 @@ class CompanionsScreen extends StatelessWidget {
           ),
         ),
         centerTitle: false,
-        actions: const [
+        actions: [
           Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Icon(Icons.more_vert, color: Colors.black),
+            padding: const EdgeInsets.only(right: 16),
+            child: PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.black),
+              onSelected: (value) {
+                if (value == 'Pending Requests') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          PendingFriendRequestsScreen(currentUserId: currentUserId),
+                    ),
+                  );
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem(
+                  value: 'Pending Requests',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text('Pending Requests'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -47,7 +128,8 @@ class CompanionsScreen extends StatelessWidget {
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.grey.shade100,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
@@ -56,17 +138,27 @@ class CompanionsScreen extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ListView.separated(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _friends.isEmpty
+                ? const Center(child: Text('No companions found.'))
+                : ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: companions.length,
-              separatorBuilder: (context, index) => const Divider(height: 24),
+              itemCount: _friends.length,
+              separatorBuilder: (context, index) =>
+              const Divider(height: 24),
               itemBuilder: (context, index) {
-                final user = companions[index];
+                final friend = _friends[index];
                 return Row(
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundImage: AssetImage(user['avatar']!),
+                      backgroundImage: friend['avatar_url'] != null
+                          ? NetworkImage(friend['avatar_url'])
+                          : null,
+                      child: friend['avatar_url'] == null
+                          ? const Icon(Icons.person, size: 28)
+                          : null,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -74,16 +166,19 @@ class CompanionsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user['name']!,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            friend['full_name'] ?? friend['username'],
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold),
                           ),
-                          Text(
-                            user['email']!,
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
+                          Text('@${friend['username']}',
+                              style: TextStyle(
+                                  color: Colors.grey.shade600)),
                         ],
                       ),
                     ),
+                    if (friend['can_share_location'] == true)
+                      const Icon(Icons.location_on, color: Colors.green),
+                    const SizedBox(width: 8),
                     const Icon(Icons.more_vert),
                   ],
                 );
@@ -120,7 +215,6 @@ class CompanionsScreen extends StatelessWidget {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.location_on), label: 'Location'),
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chats'),
-          //BottomNavigationBarItem(icon: Icon(LucideIcons.shield), label: 'Safety'),
           BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
         ],
       ),

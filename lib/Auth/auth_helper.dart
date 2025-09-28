@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supaBase;
 
 import '../Screens/email_verification.dart';
+import '../Screens/home_page.dart';
 import '../core/utils/username_generator.dart';
 import '../widgets/custom_snackbar.dart';
 
@@ -290,7 +291,7 @@ class OauthHelper {
       if(context.mounted){
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => Dashboard(user:currentUser(),)),
+          MaterialPageRoute(builder: (context) => HomePage(user:currentUser()!,)),
               (Route<dynamic> route) => false,
         );
       }

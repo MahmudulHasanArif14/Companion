@@ -1,11 +1,12 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
 
 import '../widgets/custom_consent.dart';
 import '../widgets/custom_snackbar.dart';
@@ -128,6 +129,64 @@ class LocationHelper {
     }
   }
 
+
+
+
+
+
+  // --- Get marker icon from URL and make marker---
+   Future<BitmapDescriptor> getMarkerFromUrl(String url, {int size = 80}) async {
+    if (url.isEmpty) return BitmapDescriptor.defaultMarker;
+
+    // Load image from URL
+    final response = await http.get(Uri.parse(url));
+    final bytes = response.bodyBytes;
+    final codec = await ui.instantiateImageCodec(
+      bytes,
+      targetWidth: size,
+      targetHeight: size,
+    );
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+
+    // Create a circular canvas
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint();
+    final radius = size / 2;
+
+    // Draw a circular clip
+    final rect = Rect.fromLTWH(0, 0, size.toDouble(), size.toDouble());
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    canvas.clipRRect(rrect);
+
+    // Draw the image inside the circle
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      rect,
+      paint,
+    );
+
+    // : add a border
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4;
+    canvas.drawCircle(Offset(radius, radius), radius - 2, borderPaint);
+
+    // Convert to BitmapDescriptor
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size, size);
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
+  }
+
+
+
+
+
+
   // getting current address name using position lat,lng
   Future<Placemark?> currentAddressName(Position position) async {
     try {
@@ -140,28 +199,10 @@ class LocationHelper {
 
         return place;
 
-        // setState(() {
-        //   address =
-        //   '${place.street}, ${place.locality}, ${place.administrativeArea}, ${place.country}';
-        // });
       } else {
         return null;
       }
 
-      // setState(() {
-      //   _center = LatLng(lat, lng);
-      //   _currentLocationMarker = Marker(
-      //     markerId: const MarkerId('currentLocation'),
-      //     position: _center,
-      //     infoWindow: InfoWindow(title: 'Your Location', snippet: address),
-      //     icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-      //   );
-      //   _isLoading = false;
-      // });
-
-      // mapController?.animateCamera(
-      //   CameraUpdate.newLatLngZoom(_center, 15),
-      // );
     } on PlatformException catch (e) {
       debugPrint('Error: ${e.message}');
       return null;

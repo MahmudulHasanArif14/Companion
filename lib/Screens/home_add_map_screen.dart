@@ -1,4 +1,3 @@
-import 'package:companion/Screens/dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
@@ -6,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../Services/geolocation.dart';
+import 'home_page.dart';
 
 class HomeAddMapScreen extends StatefulWidget {
   final User user;
@@ -294,7 +294,7 @@ class _HomeAddMapScreenState extends State<HomeAddMapScreen> {
                   // Add your save logic here
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (context) => Dashboard(user: widget.user)),
+                    MaterialPageRoute(builder: (context) => HomePage(user: widget.user)),
                         (Route<dynamic> route) => false,
                   );
 

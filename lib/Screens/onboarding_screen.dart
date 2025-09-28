@@ -13,44 +13,18 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
+
+
+
+
+
+
+
+
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _currentIndex = 0;
 
-  // Navigating to Login Page
-  void _navigateToLoginPage() async {
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
-
-    final bool isLoggedIn = OauthHelper.isUserLoggedIn();
-
-    late final Widget destination;
-
-    if (!isLoggedIn) {
-      destination = const OnboardingScreen();
-    } else {
-      destination = Dashboard(user: OauthHelper.currentUser());
-    }
-
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => destination,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation.drive(
-              Tween(
-                begin: 0.0,
-                end: 1.0,
-              ).chain(CurveTween(curve: Curves.bounceIn)),
-            ),
-            child: child,
-          );
-        },
-      ),
-    );
-  }
 
   // Onboarding Screen Contexts
   final List<Map<String, String>> _pages = [

@@ -14,7 +14,9 @@ class CompanionsScreen extends StatefulWidget {
 class _CompanionsScreenState extends State<CompanionsScreen> {
   final supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _friends = [];
+  List<Map<String, dynamic>> _filteredFriends = [];
   bool isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -22,13 +24,14 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
     _fetchFriends();
   }
 
+  // Fetch friends from Supabase
   Future<void> _fetchFriends() async {
     final currentUserId = OauthHelper.currentUser()!.id;
 
     try {
       final response = await supabase
           .from('friends')
-          .select('user_id_1, user_id_2, can_share_location, '
+          .select('id, user_id_1, user_id_2, can_share_location, '
           'profiles!friends_user_id_2_fkey(id, username, full_name, avatar_url)')
           .or('user_id_1.eq.$currentUserId,user_id_2.eq.$currentUserId');
 
@@ -48,7 +51,8 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
         }
 
         friendsList.add({
-          'id': friendProfile['id'],
+          'id': row['id'], // friend row id for updating
+          'user_id': friendProfile['id'],
           'username': friendProfile['username'],
           'full_name': friendProfile['full_name'],
           'avatar_url': friendProfile['avatar_url'],
@@ -58,6 +62,7 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
 
       setState(() {
         _friends = friendsList;
+        _filteredFriends = friendsList;
         isLoading = false;
       });
     } catch (e) {
@@ -66,6 +71,38 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
         isLoading = false;
       });
     }
+  }
+
+  // Update the can_share_location column in Supabase
+  Future<void> _updateLocationSharing(String friendRowId, bool canShare) async {
+    try {
+      await supabase
+          .from('friends')
+          .update({'can_share_location': canShare})
+          .eq('id', friendRowId);
+
+      setState(() {
+        final index = _friends.indexWhere((f) => f['id'] == friendRowId);
+        if (index != -1) {
+          _friends[index]['can_share_location'] = canShare;
+        }
+        _applySearchFilter(_searchQuery); // keep filter updated
+      });
+    } catch (e) {
+      print('Error updating location sharing: $e');
+    }
+  }
+
+  void _applySearchFilter(String query) {
+    setState(() {
+      _searchQuery = query;
+      _filteredFriends = _friends.where((friend) {
+        final name = friend['full_name']?.toLowerCase() ?? '';
+        final username = friend['username']?.toLowerCase() ?? '';
+        final searchLower = query.toLowerCase();
+        return name.contains(searchLower) || username.contains(searchLower);
+      }).toList();
+    });
   }
 
   @override
@@ -128,27 +165,26 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.grey.shade100,
-                contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
               ),
+              onChanged: _applySearchFilter,
             ),
           ),
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _friends.isEmpty
+                : _filteredFriends.isEmpty
                 ? const Center(child: Text('No companions found.'))
                 : ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _friends.length,
-              separatorBuilder: (context, index) =>
-              const Divider(height: 24),
+              itemCount: _filteredFriends.length,
+              separatorBuilder: (context, index) => const Divider(height: 24),
               itemBuilder: (context, index) {
-                final friend = _friends[index];
+                final friend = _filteredFriends[index];
                 return Row(
                   children: [
                     CircleAvatar(
@@ -167,19 +203,66 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
                         children: [
                           Text(
                             friend['full_name'] ?? friend['username'],
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold),
+                            style:
+                            const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text('@${friend['username']}',
-                              style: TextStyle(
-                                  color: Colors.grey.shade600)),
+                              style: TextStyle(color: Colors.grey.shade600)),
                         ],
                       ),
                     ),
                     if (friend['can_share_location'] == true)
                       const Icon(Icons.location_on, color: Colors.green),
                     const SizedBox(width: 8),
-                    const Icon(Icons.more_vert),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert),
+                      itemBuilder: (BuildContext context) =>
+                      <PopupMenuEntry<String>>[
+                        PopupMenuItem(
+                          child: ListTile(
+                            leading: const Icon(Icons.location_on),
+                            title: const Text('Share location'),
+                            trailing: Switch(
+                              value: friend['can_share_location'] == true,
+                              onChanged: (bool value) {
+                                _updateLocationSharing(friend['id'], value);
+                                Navigator.pop(context);
+                              },
+                            ),
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'message',
+                          child: Row(
+                            children: [
+                              Icon(Icons.message),
+                              SizedBox(width: 8),
+                              Text('Message'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'call',
+                          child: Row(
+                            children: [
+                              Icon(Icons.call),
+                              SizedBox(width: 8),
+                              Text('Call'),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'message':
+                            print('Message ${friend['username']}');
+                            break;
+                          case 'call':
+                            print('Call ${friend['username']}');
+                            break;
+                        }
+                      },
+                    ),
                   ],
                 );
               },
@@ -205,17 +288,6 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
               ),
             ),
           )
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 2,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF4A57FF),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.location_on), label: 'Location'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chats'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
         ],
       ),
     );

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../Services/notification_service.dart';
 import '../database/database_helper.dart';
 
 class AddContactDialog {

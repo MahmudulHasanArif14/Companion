@@ -57,6 +57,11 @@ dependencies:
   googleapis_auth: ^2.0.0
   http: ^1.5.0
   firebase_analytics: ^12.0.0
+  curved_labeled_navigation_bar: ^2.0.6
+  heif_converter: ^1.0.1
+  image_picker: ^1.1.2
+  google_places_flutter: ^2.1.1
+  open_route_service: ^1.2.7
 
 dev_dependencies:
   flutter_launcher_icons: "^0.14.4"

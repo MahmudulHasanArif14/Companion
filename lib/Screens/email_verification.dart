@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../Auth/auth_helper.dart';
 import '../widgets/custom_snackbar.dart';
-import 'dashboard.dart';
 
 class EmailVerification extends StatefulWidget {
    final User? user;

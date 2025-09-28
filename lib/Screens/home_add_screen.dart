@@ -25,7 +25,7 @@ class _HomeAddScreenState extends State<HomeAddScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24.0),
               child: Text(
-                'Add Places your family visits often,\nlike home and school',
+                'Add Places your companion visits often,\nlike home and school',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,

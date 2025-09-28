@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../Auth/auth_helper.dart';
 import '../widgets/custom_textformfield.dart';
-import 'dashboard.dart';
+import 'home_page.dart';
 
 class LoginPassword extends StatefulWidget {
   final String emailAddress;
@@ -66,7 +66,7 @@ class _LoginPasswordState extends State<LoginPassword> {
       //   after login go to direct Dashboard
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => Dashboard(user:user)),
+        MaterialPageRoute(builder: (context) => HomePage(user:user)),
             (Route<dynamic> route) => false,
       );
     }

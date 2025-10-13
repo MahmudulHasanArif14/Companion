@@ -19,18 +19,17 @@ class AddJourney extends StatefulWidget {
 }
 
 class _AddJourneyState extends State<AddJourney> {
-
   LatLng? fromLocation;
   LatLng? toLocation;
   LatLng? userLocation;
   late GoogleMapController mapController;
-  static final String googleApiKey =dotenv.env['GOOGLE_Api_Key']!;
+
   BitmapDescriptor? drivingIcon;
   BitmapDescriptor? walkingIcon;
   BitmapDescriptor? bicyclingIcon;
   BitmapDescriptor? transitIcon;
   BitmapDescriptor? destinationIcon;
-
+  BitmapDescriptor? pickupIcon;
 
   final TextEditingController fromController = TextEditingController();
   final TextEditingController toController = TextEditingController();
@@ -41,22 +40,22 @@ class _AddJourneyState extends State<AddJourney> {
   String travelMode = 'driving'; // default mode
   List<String> travelModes = ['driving', 'walking', 'bicycling', 'transit'];
   String routeInfo = '';
-
+  String get googleApiKey => dotenv.get('GOOGLE_API_KEY');
   List<Map<String, dynamic>> _friends = [];
   bool isLoading = true;
   Timer? _debounce;
 
   Future<void> loadEnv() async {
-    await dotenv.load(fileName: ".env");
+    _getUserLocation();
+    _fetchFriends();
+    _loadCustomIcons(); // Load custom icons
+    setState(() {});
   }
 
   @override
   void initState() {
     super.initState();
     loadEnv();
-    _getUserLocation();
-    _fetchFriends();
-
   }
 
   @override
@@ -66,7 +65,6 @@ class _AddJourneyState extends State<AddJourney> {
     toController.dispose();
     super.dispose();
   }
-
 
   Future<void> _loadCustomIcons() async {
     drivingIcon = await BitmapDescriptor.asset(
@@ -84,9 +82,11 @@ class _AddJourneyState extends State<AddJourney> {
     destinationIcon = await BitmapDescriptor.defaultMarkerWithHue(
         BitmapDescriptor.hueGreen);
 
+    pickupIcon = await BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueRed);
+
     setState(() {});
   }
-
 
   Future<void> _getUserLocation() async {
     try {
@@ -99,7 +99,7 @@ class _AddJourneyState extends State<AddJourney> {
           .maybeSingle();
 
       final avatarUrl = profile?['avatar_url'] ?? '';
-      final name = profile?['full_name'] ?? 'User';
+      final name = profile?['full_name'] ?? 'John Doe';
       final markerIcon = await LocationHelper().getMarkerFromUrl(avatarUrl);
 
       if (!mounted) return;
@@ -112,7 +112,11 @@ class _AddJourneyState extends State<AddJourney> {
             position: userLocation!,
             infoWindow: InfoWindow(title: 'You are here $name'),
             icon: markerIcon,
+            draggable: false,
           ));
+          mapController.animateCamera(
+              CameraUpdate.newLatLngZoom(userLocation!, 14),
+          );
         });
       }
     } catch (e) {
@@ -170,13 +174,21 @@ class _AddJourneyState extends State<AddJourney> {
   }
 
   void _updateMarkersAndPolyline() async {
-    markers.removeWhere((m) => m.markerId.value != 'user_current');
+    markers.removeWhere((m) =>
+    m.markerId.value != 'user_current' &&
+        m.markerId.value != 'pickup' &&
+        m.markerId.value != 'destination');
 
     if (fromLocation != null) {
       markers.add(Marker(
         markerId: const MarkerId('pickup'),
         position: fromLocation!,
         infoWindow: const InfoWindow(title: 'Pickup Address'),
+        icon: pickupIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        draggable: true, // Make pickup marker draggable
+        onDragEnd: (newPosition) {
+          _onMarkerDragged('pickup', newPosition);
+        },
       ));
     }
 
@@ -185,7 +197,11 @@ class _AddJourneyState extends State<AddJourney> {
         markerId: const MarkerId('destination'),
         position: toLocation!,
         infoWindow: const InfoWindow(title: 'Destination Address'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        icon: destinationIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        draggable: true, // Make destination marker draggable
+        onDragEnd: (newPosition) {
+          _onMarkerDragged('destination', newPosition);
+        },
       ));
     }
 
@@ -222,6 +238,58 @@ class _AddJourneyState extends State<AddJourney> {
     setState(() {});
   }
 
+  Future<void> _onMarkerDragged(String markerType, LatLng newPosition) async {
+    try {
+      // Get address from coordinates
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+          newPosition.latitude,
+          newPosition.longitude
+      );
+
+      String address = '';
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        address = '${place.name}, ${place.locality}, ${place.administrativeArea}';
+      } else {
+        address = '${newPosition.latitude.toStringAsFixed(6)}, ${newPosition.longitude.toStringAsFixed(6)}';
+      }
+
+      if (markerType == 'pickup') {
+        setState(() {
+          fromLocation = newPosition;
+          fromController.text = address;
+        });
+      } else if (markerType == 'destination') {
+        setState(() {
+          toLocation = newPosition;
+          toController.text = address;
+        });
+      }
+
+      // Update the route
+      _updateMarkersAndPolyline();
+
+      // Move camera to the dragged marker
+      mapController.animateCamera(CameraUpdate.newLatLng(newPosition));
+
+    } catch (e) {
+      debugPrint('Error getting address from dragged marker: $e');
+      // Still update the location even if address lookup fails
+      if (markerType == 'pickup') {
+        setState(() {
+          fromLocation = newPosition;
+          fromController.text = '${newPosition.latitude.toStringAsFixed(6)}, ${newPosition.longitude.toStringAsFixed(6)}';
+        });
+      } else if (markerType == 'destination') {
+        setState(() {
+          toLocation = newPosition;
+          toController.text = '${newPosition.latitude.toStringAsFixed(6)}, ${newPosition.longitude.toStringAsFixed(6)}';
+        });
+      }
+      _updateMarkersAndPolyline();
+    }
+  }
+
   Future<void> _updateTravelModes() async {
     if (fromLocation == null || toLocation == null) return;
 
@@ -241,19 +309,7 @@ class _AddJourneyState extends State<AddJourney> {
         }
       });
     }
-  }
 
-  Future<List<String>> fetchGooglePlaceSuggestions(String input) async {
-    if (input.isEmpty) return [];
-    final url = Uri.parse(
-        "https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$googleApiKey&types=geocode&language=en");
-    final response = await http.get(url);
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final predictions = data['predictions'] as List;
-      return predictions.map((p) => p['description'] as String).toList();
-    }
-    return [];
   }
 
   Future<List<String>> _getPlaceSuggestions(String query) async {
@@ -334,7 +390,7 @@ class _AddJourneyState extends State<AddJourney> {
       onSelected: onSuggestionSelected,
       builder: (context, controller, focusNode) {
         return TextField(
-          controller: controller, // Use the controller provided by TypeAheadField
+          controller: controller,
           focusNode: focusNode,
           decoration: InputDecoration(
             hintText: hint,
@@ -393,51 +449,52 @@ class _AddJourneyState extends State<AddJourney> {
     );
   }
 
+  // Fetch friends from Supabase
   Future<void> _fetchFriends() async {
     final currentUserId = OauthHelper.currentUser()!.id;
-    final supabase = Supabase.instance.client;
 
     try {
-      final response = await supabase.from('friends').select('''
-      id,
-      user_id_1,
-      user_id_2,
-      can_share_location,
-      profiles!friends_user_id_2_fkey(id, username, full_name, avatar_url)
-    ''').or('user_id_1.eq.$currentUserId,user_id_2.eq.$currentUserId');
+      final response = await Supabase.instance.client
+          .from('friends')
+          .select('id, user_id_1, user_id_2, can_share_location, '
+          'profiles!friends_user_id_2_fkey(id, username, full_name, avatar_url)')
+          .or('user_id_1.eq.$currentUserId,user_id_2.eq.$currentUserId');
 
-      List<Map<String, dynamic>> friendsList = response.map<Map<String, dynamic>>((row) {
+      List<Map<String, dynamic>> friendsList = [];
+
+      for (var row in response) {
         Map<String, dynamic> friendProfile;
         if (row['user_id_1'] == currentUserId) {
-          friendProfile = row['profiles'];
+          friendProfile = row['profiles']; // user_id_2 profile
         } else {
-          friendProfile = {
-            'id': row['user_id_1'],
-            'username': row['profiles']?['username'] ?? '',
-            'full_name': row['profiles']?['full_name'] ?? '',
-            'avatar_url': row['profiles']?['avatar_url'] ?? ''
-          };
+          final profileRes = await Supabase.instance.client
+              .from('profiles')
+              .select('id, username, full_name, avatar_url')
+              .eq('id', row['user_id_1'])
+              .single();
+          friendProfile = profileRes;
         }
 
-        return {
-          'id': row['id'],
+        friendsList.add({
+          'id': row['id'], // friend row id for updating
           'user_id': friendProfile['id'],
           'username': friendProfile['username'],
           'full_name': friendProfile['full_name'],
           'avatar_url': friendProfile['avatar_url'],
           'can_share_location': row['can_share_location'],
-        };
-      }).toList();
-
-      if (mounted) {
-        setState(() {
-          _friends = friendsList;
-          isLoading = false;
         });
       }
+
+      setState(() {
+        _friends = friendsList;
+
+        isLoading = false;
+      });
     } catch (e) {
-      debugPrint('Error fetching friends: $e');
-      if (mounted) setState(() => isLoading = false);
+      print('Error fetching friends: $e');
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -526,6 +583,7 @@ class _AddJourneyState extends State<AddJourney> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       body: Stack(
         children: [
@@ -539,6 +597,10 @@ class _AddJourneyState extends State<AddJourney> {
             polylines: polylines,
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
+            onTap: (LatLng position) {
+              // Optional: Add tap to set location functionality
+              // _onMapTapped(position);
+            },
           ),
           DraggableScrollableSheet(
             initialChildSize: 0.45,
@@ -567,7 +629,7 @@ class _AddJourneyState extends State<AddJourney> {
                     ),
                   ),
                   const Text(
-                    'Select Address',
+                    'Select Address (Drag markers to adjust)',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold),

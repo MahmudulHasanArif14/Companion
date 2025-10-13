@@ -192,7 +192,7 @@ class _JourneyViewersState extends State<JourneyViewers> {
                       ),
                     ),
                   ),
-                 
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -204,7 +204,7 @@ class _JourneyViewersState extends State<JourneyViewers> {
                       ),
                       const SizedBox(width: 8),
                       Image.asset('assets/images/eyes.png', height: 24),
-                      
+
                     ],
                   ),
 
@@ -224,7 +224,7 @@ class _JourneyViewersState extends State<JourneyViewers> {
                     );
                   }),
 
-                  
+
                   const SizedBox(height: 16),
 
                 ],

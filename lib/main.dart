@@ -89,6 +89,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    print("files are ${dotenv.env}");
     return FutureBuilder(
       future: Future.wait([
         _notificationInitialization ?? Future.value(),

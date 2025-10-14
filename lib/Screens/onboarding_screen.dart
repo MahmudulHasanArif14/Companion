@@ -100,7 +100,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : Colors.black,
+                                  color: Colors.black,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -109,9 +109,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 _pages[index]["desc"]!,
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black87,
+                                  color: Colors.black87,
                                   height: 1.5,
                                 ),
                                 textAlign: TextAlign.center,
@@ -131,15 +129,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
                 _pages.length,
-                (index) => Container(
-                  margin: EdgeInsets.symmetric(horizontal: 4),
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentIndex == index
-                        ? Colors.amber
-                        : Colors.grey.shade300,
+                (index) => GestureDetector(
+                  onTap: (){
+                    if(_currentIndex<_pages.length-1){
+                      _controller.animateToPage(
+                        index,
+                        duration: Duration(milliseconds: 500),
+                        curve: Curves.ease);
+                    }else{
+
+                      _controller.animateToPage(
+                        index,
+                        duration: Duration(milliseconds: 500),
+                        curve: Curves.ease);
+
+                    }
+
+                  },
+                  child: Container(
+                    margin: EdgeInsets.symmetric(horizontal: 4),
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _currentIndex == index
+                          ? Colors.amber
+                          : Colors.grey.shade300,
+                    ),
                   ),
                 ),
               ),
@@ -201,7 +217,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           text: TextSpan(
                             text: 'Already have an account?',
                             style: TextStyle(
-                              color: isDark ? Colors.white : Colors.black,
+                              color:  Colors.black,
                             ),
                             children: [
                               TextSpan(

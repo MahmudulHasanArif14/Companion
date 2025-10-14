@@ -7,7 +7,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationService {
@@ -296,6 +298,18 @@ class NotificationService {
     }
   }
 
+
+
+  /// Cancels a notification by ID
+  Future<void> cancelManualNotification({required String title}) async {
+    try {
+      await _localPlugin.cancel(title.hashCode);
+    } catch (e) {
+      if (kDebugMode) print('Error cancelling notification: $e');
+    }
+  }
+
+
   /// Sends a friend request accepted notification
   Future<void> sendFriendRequestAcceptedNotification({
     required String senderId,
@@ -330,3 +344,6 @@ class NotificationService {
     }
   }
 }
+
+
+

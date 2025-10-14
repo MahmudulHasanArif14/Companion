@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:app_links/app_links.dart';
-import 'package:companion/Screens/dashboard.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

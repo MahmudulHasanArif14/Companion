@@ -67,15 +67,22 @@ class _LandingPageState extends State<LandingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Loading...'),
-          ],
+    return Scaffold(
+      body:Container(
+        decoration: BoxDecoration(
+          color: Color(0xFF097782),
+        ),
+        child: Center(
+          child:  Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset('assets/images/logo.png', width: 200),
+              SizedBox(height: 16),
+              CircularProgressIndicator(),
+              SizedBox(height: 8),
+              Text('Initializing Companion...', style: TextStyle(fontSize: 16,color: Colors.white70)),
+            ],
+          ),
         ),
       ),
     );

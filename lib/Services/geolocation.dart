@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -15,6 +19,7 @@ class LocationHelper {
   StreamSubscription<Position>? _positionSub;
   StreamSubscription<ServiceStatus>? _serviceStatusSub;
 
+  String get googleApiKey => dotenv.get('GOOGLE_API_KEY');
   final CustomConsentBox _customAlert = CustomConsentBox();
 
   // user consent dialog box
@@ -181,6 +186,156 @@ class LocationHelper {
     final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
     return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
   }
+
+
+
+
+
+  /// Google Directions API — traffic-aware fastest route
+  Future<Map<String, dynamic>?> getRoute(
+      LatLng from, LatLng to, String mode) async {
+    final url = Uri.parse(
+      "https://maps.googleapis.com/maps/api/directions/json?"
+          "origin=${from.latitude},${from.longitude}&"
+          "destination=${to.latitude},${to.longitude}&"
+          "mode=$mode&"
+          "alternatives=true&"
+          "departure_time=now&" // 🚗 Enables real-time traffic calculation
+          "traffic_model=best_guess&" // ⚙️ Uses Google's smart prediction
+          "key=$googleApiKey",
+    );
+
+    if (kDebugMode) {
+      print("🌐 Requesting route from Google Directions API...");
+    }
+
+
+    final response = await http.get(url);
+    print("📥 Response code: ${response.statusCode}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (kDebugMode) {
+        print("🧭 API status: ${data['status']}");
+      }
+
+      if (data['status'] != 'OK') {
+        print("⚠️ Directions API returned error: ${data['status']}");
+        print("Error message: ${data['error_message'] ?? 'N/A'}");
+        return null;
+      }
+
+      final routes = data['routes'];
+      if (routes != null && routes.isNotEmpty) {
+        // ✅ Sort by total duration-in-traffic (if available), else normal duration
+        routes.sort((a, b) {
+          int totalA = 0;
+          int totalB = 0;
+
+          for (var leg in a['legs']) {
+            totalA += int.tryParse(
+                leg['duration_in_traffic']?['value']?.toString() ??
+                    leg['duration']['value'].toString()) ??
+                999999;
+          }
+          for (var leg in b['legs']) {
+            totalB += int.tryParse(
+                leg['duration_in_traffic']?['value']?.toString() ??
+                    leg['duration']['value'].toString()) ??
+                999999;
+          }
+
+          return totalA.compareTo(totalB);
+        });
+
+        final best = routes.first;
+        final duration =
+            best['legs'][0]['duration_in_traffic']?['text'] ?? best['legs'][0]['duration']['text'];
+        print("✅ Fastest route found: ${best['summary']} ($duration)");
+
+        return best;
+      } else {
+        print("⚠️ No routes found.");
+      }
+    } else {
+      print("❌ HTTP Error: ${response.statusCode}");
+    }
+
+    return null;
+  }
+
+
+
+
+
+
+
+
+  //Decode Polyline
+  List<LatLng> decodePolyline(String encoded) {
+    List<LatLng> polyline = [];
+    int index = 0, len = encoded.length;
+    int lat = 0, lng = 0;
+
+    while (index < len) {
+      int b, shift = 0, result = 0;
+      do {
+        // converted encoded ascii value to decimal
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 31) << shift;
+        shift += 5;
+      } while (b >= 32);
+      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 31) << shift;
+        shift += 5;
+      } while (b >= 32);
+      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      polyline.add(LatLng(lat / 1e5, lng / 1e5));
+    }
+    return polyline;
+  }
+
+
+
+
+
+
+
+
+
+
+  //Get Bearing
+
+  double getBearing(LatLng start, LatLng end) {
+    final lat1 = start.latitude * pi / 180;
+    final lon1 = start.longitude * pi / 180;
+    final lat2 = end.latitude * pi / 180;
+    final lon2 = end.longitude * pi / 180;
+
+    final dLon = lon2 - lon1;
+    final y = sin(dLon) * cos(lat2);
+    final x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon);
+
+    double bearing = atan2(y, x) * 180 / pi;
+    bearing = (bearing + 360) % 360;
+
+    return bearing;
+  }
+
+
+
+
+
+
+
 
 
 

@@ -148,7 +148,17 @@
 
 
 
+            <key>UIBackgroundModes</key>
+            <array>
+              <string>location</string>
+              <string>fetch</string>
+              <string>processing</string>
+            </array>
 
+            <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+            <string>This app needs background location to track your journey</string>
+            <key>NSLocationWhenInUseUsageDescription</key>
+            <string>This app needs location to track your journey</string>
 
 
 

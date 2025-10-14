@@ -7,9 +7,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'Providers/journey_provider.dart';
 import 'Providers/profile_image_provider.dart';
 import 'Providers/theme_provider.dart';
 import 'Screens/landing_page.dart';
+import 'Services/background_journey_service.dart';
 import 'Services/notification_service.dart';
 import 'database/database_helper.dart';
 import 'firebase_options.dart';
@@ -35,8 +37,8 @@ Future<void> main() async {
     throw Exception('Missing Supabase credentials in .env');
   }
 
-
   FirebaseMessaging.onBackgroundMessage(msgHandler);
+  BackgroundJourneyService().initialize();
 
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
   runApp(
@@ -48,6 +50,7 @@ Future<void> main() async {
            create: (context) => ProfileImageProvider(context),
          ),
         ChangeNotifierProvider(create: (context) => DatabaseHelperProvider()),
+        ChangeNotifierProvider(create: (_) => JourneyProvider()),
         // ChangeNotifierProvider(create: (_) => NotificationProvider()),
 
       ],
@@ -79,6 +82,9 @@ class _MyAppState extends State<MyApp> {
     try {
       final notificationService = NotificationService();
       await notificationService.initialize(context);
+
+
+
     } catch (e) {
       debugPrint('Notification initialization failed: $e');
     }
@@ -140,8 +146,22 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           home: Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
+            body: Container(
+              decoration: BoxDecoration(
+                color: Color(0xFF097782),
+              ),
+              child: Center(
+                child:  Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/images/logo.png', width: 200),
+                    SizedBox(height: 16),
+                    CircularProgressIndicator(),
+                    SizedBox(height: 8),
+                    Text('Initializing Companion...', style: TextStyle(fontSize: 16,color: Colors.white)),
+                  ],
+                ),
+              ),
             ),
           ),
         );

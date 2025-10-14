@@ -39,43 +39,41 @@ class _JourneyChatScreenState extends State<JourneyChatScreen> {
         .eq('journey_id', widget.journeyId)
         .order('created_at', ascending: true);
 
-    if (response != null) {
-      final List<Map<String, dynamic>> messages = List<Map<String, dynamic>>.from(response);
+    final List<Map<String, dynamic>> messages = List<Map<String, dynamic>>.from(response);
 
-      // Mark messages as delivered if they are received by this user
-      for (var msg in messages) {
-        if (msg['sender_id'] != _currentUserId && msg['status'] == 'sent') {
-          await _client
-              .from('journey_messages')
-              .update({'status': 'delivered'})
-              .eq('id', msg['id']);
-          msg['status'] = 'delivered';
-        }
-      }
-
-      setState(() => _messages = messages);
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent + 60,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-
-      // Mark messages as seen if chat is open
-      for (var msg in messages) {
-        if (msg['sender_id'] != _currentUserId && msg['status'] != 'seen') {
-          await _client
-              .from('journey_messages')
-              .update({'status': 'seen'})
-              .eq('id', msg['id']);
-        }
+    // Mark messages as delivered if they are received by this user
+    for (var msg in messages) {
+      if (msg['sender_id'] != _currentUserId && msg['status'] == 'sent') {
+        await _client
+            .from('journey_messages')
+            .update({'status': 'delivered'})
+            .eq('id', msg['id']);
+        msg['status'] = 'delivered';
       }
     }
-  }
+
+    setState(() => _messages = messages);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent + 60,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
+    // Mark messages as seen if chat is open
+    for (var msg in messages) {
+      if (msg['sender_id'] != _currentUserId && msg['status'] != 'seen') {
+        await _client
+            .from('journey_messages')
+            .update({'status': 'seen'})
+            .eq('id', msg['id']);
+      }
+    }
+    }
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();

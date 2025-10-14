@@ -1,14 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:companion/Auth/auth_helper.dart';
+import 'package:companion/widgets/custom_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../Providers/journey_provider.dart';
 import '../Services/geolocation.dart';
 import 'package:geocoding/geocoding.dart';
+import '../models/instruction.dart';
 import 'journey_viewers.dart';
 
 class AddJourney extends StatefulWidget {
@@ -24,10 +28,7 @@ class _AddJourneyState extends State<AddJourney> {
   LatLng? userLocation;
   late GoogleMapController mapController;
 
-  BitmapDescriptor? drivingIcon;
-  BitmapDescriptor? walkingIcon;
-  BitmapDescriptor? bicyclingIcon;
-  BitmapDescriptor? transitIcon;
+
   BitmapDescriptor? destinationIcon;
   BitmapDescriptor? pickupIcon;
 
@@ -44,18 +45,29 @@ class _AddJourneyState extends State<AddJourney> {
   List<Map<String, dynamic>> _friends = [];
   bool isLoading = true;
   Timer? _debounce;
+  String? currentJourneyId;
+  late List<Instruction> _instructions = []; // turn-by-turn steps
 
   Future<void> loadEnv() async {
-    _getUserLocation();
+    markers.clear();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final journeyProvider =context.read<JourneyProvider>();
+
+    });
     _fetchFriends();
-    _loadCustomIcons(); // Load custom icons
+    _loadCustomIcons();
     setState(() {});
   }
 
   @override
   void initState() {
     super.initState();
-    loadEnv();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loadEnv();
+    });
+
   }
 
   @override
@@ -67,23 +79,15 @@ class _AddJourneyState extends State<AddJourney> {
   }
 
   Future<void> _loadCustomIcons() async {
-    drivingIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(48, 48)), 'assets/car.png');
 
-    walkingIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(48, 48)), 'assets/walking.png');
+    pickupIcon =  await BitmapDescriptor.asset(
+      const ImageConfiguration(devicePixelRatio: 2.5),
+      "assets/images/pickup.png",
+      width: 85,
+      height: 70,
+    );
+    destinationIcon=await BitmapDescriptor.asset(ImageConfiguration(devicePixelRatio: 2.5), "assets/images/destination.png",width: 85,height: 70,);
 
-    bicyclingIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(48, 48)), 'assets/bike.png');
-
-    transitIcon = await BitmapDescriptor.asset(
-        const ImageConfiguration(size: Size(48, 48)), 'assets/transit.png');
-
-    destinationIcon = await BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueGreen);
-
-    pickupIcon = await BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueRed);
 
     setState(() {});
   }
@@ -99,49 +103,48 @@ class _AddJourneyState extends State<AddJourney> {
           .maybeSingle();
 
       final avatarUrl = profile?['avatar_url'] ?? '';
-      final name = profile?['full_name'] ?? 'John Doe';
+      final name = profile?['full_name'] ?? 'Unknown';
       final markerIcon = await LocationHelper().getMarkerFromUrl(avatarUrl);
 
       if (!mounted) return;
       final loc = await LocationHelper().determinePosition(context);
       if (loc != null) {
-        setState(() {
-          userLocation = LatLng(loc.latitude, loc.longitude);
-          markers.add(Marker(
-            markerId: const MarkerId('user_current'),
-            position: userLocation!,
-            infoWindow: InfoWindow(title: 'You are here $name'),
-            icon: markerIcon,
-            draggable: false,
-          ));
-          mapController.animateCamera(
-              CameraUpdate.newLatLngZoom(userLocation!, 14),
-          );
-        });
+
+        userLocation = LatLng(loc.latitude, loc.longitude);
+        if(userLocation!=null){
+          List<Placemark> placemarks = await placemarkFromCoordinates(
+              userLocation!.latitude, userLocation!.longitude);
+
+          if(placemarks.isNotEmpty){
+            fromController.text= '${placemarks.first.name}, ${placemarks.first.locality}';
+          }
+
+        }
+
       }
+      setState(() {
+        fromLocation = userLocation;
+        markers.removeWhere((m) =>
+        m.markerId.value == 'user_current' ||
+            m.markerId.value == 'pickup');
+
+        markers.add(Marker(
+          markerId: const MarkerId('user_current'),
+          position: userLocation!,
+          infoWindow: InfoWindow(title: 'You are here $name'),
+          icon: pickupIcon ?? markerIcon,
+          draggable: false,
+        ));
+        mapController.animateCamera(
+          CameraUpdate.newLatLngZoom(userLocation!, 14),
+        );
+      });
     } catch (e) {
       debugPrint('Error getting user location: $e');
     }
   }
 
-  /// Google Directions API route fetching
-  Future<Map<String, dynamic>?> getRoute(
-      LatLng from, LatLng to, String mode) async {
-    final url = Uri.parse(
-        "https://maps.googleapis.com/maps/api/directions/json?"
-            "origin=${from.latitude},${from.longitude}&"
-            "destination=${to.latitude},${to.longitude}&"
-            "mode=$mode&key=$googleApiKey");
 
-    final response = await http.get(url);
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['routes'] != null && data['routes'].isNotEmpty) {
-        return data['routes'][0];
-      }
-    }
-    return null;
-  }
 
   List<LatLng> decodePolyline(String encoded) {
     List<LatLng> polyline = [];
@@ -151,10 +154,11 @@ class _AddJourneyState extends State<AddJourney> {
     while (index < len) {
       int b, shift = 0, result = 0;
       do {
+        // converted encoded ascii value to decimal
         b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1F) << shift;
+        result |= (b & 31) << shift;
         shift += 5;
-      } while (b >= 0x20);
+      } while (b >= 32);
       int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
       lat += dlat;
 
@@ -162,9 +166,9 @@ class _AddJourneyState extends State<AddJourney> {
       result = 0;
       do {
         b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1F) << shift;
+        result |= (b & 31) << shift;
         shift += 5;
-      } while (b >= 0x20);
+      } while (b >= 32);
       int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
       lng += dlng;
 
@@ -175,17 +179,17 @@ class _AddJourneyState extends State<AddJourney> {
 
   void _updateMarkersAndPolyline() async {
     markers.removeWhere((m) =>
-    m.markerId.value != 'user_current' &&
-        m.markerId.value != 'pickup' &&
-        m.markerId.value != 'destination');
+    m.markerId.value == 'pickup' ||
+        m.markerId.value == 'destination'||m.markerId.value=='user_current');
 
     if (fromLocation != null) {
+
       markers.add(Marker(
         markerId: const MarkerId('pickup'),
         position: fromLocation!,
         infoWindow: const InfoWindow(title: 'Pickup Address'),
         icon: pickupIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        draggable: true, // Make pickup marker draggable
+        draggable: true,
         onDragEnd: (newPosition) {
           _onMarkerDragged('pickup', newPosition);
         },
@@ -198,7 +202,7 @@ class _AddJourneyState extends State<AddJourney> {
         position: toLocation!,
         infoWindow: const InfoWindow(title: 'Destination Address'),
         icon: destinationIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        draggable: true, // Make destination marker draggable
+        draggable: true,
         onDragEnd: (newPosition) {
           _onMarkerDragged('destination', newPosition);
         },
@@ -209,9 +213,33 @@ class _AddJourneyState extends State<AddJourney> {
     routeInfo = '';
 
     if (fromLocation != null && toLocation != null) {
-      final route = await getRoute(fromLocation!, toLocation!, travelMode);
+      final route = await LocationHelper().getRoute(fromLocation!, toLocation!, travelMode);
+      print("Route: $route");
+
       if (route != null) {
         final points = decodePolyline(route['overview_polyline']['points']);
+        print("Decoded Points: $points");
+
+        // save instructions
+        List steps = route["legs"][0]["steps"];
+
+        _instructions = steps.map((s) {
+
+          final text = (s["html_instructions"] as String).replaceAll(RegExp(r'<[^>]*>'), '');
+
+          // Get the Next Turn location of this step
+          final endLat = s["end_location"]["lat"];
+          final endLng = s["end_location"]["lng"];
+          final distance = s["distance"]["value"]??0; // in meters
+          final location = LatLng(endLat, endLng);
+
+          return Instruction(text: text, lat: location.latitude,lng: location.longitude,  distance: distance is int ? distance.toDouble() : int.tryParse(distance.toString())?.toDouble() ?? 0.0,);
+        }).toList();
+
+
+
+
+
         polylines.add(Polyline(
           polylineId: const PolylineId('journey_line'),
           points: points,
@@ -219,16 +247,19 @@ class _AddJourneyState extends State<AddJourney> {
           width: 5,
         ));
 
+
+        // on first route fetch destination reach time and distance are shown
         final legs = route['legs'][0];
         final distance = legs['distance']['text'];
         final duration = legs['duration']['text'];
         routeInfo = "Distance: $distance, Duration: $duration";
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("No route available for selected travel mode"),
-          ),
-        );
+
+        if(mounted) {
+          CustomSnackbar.show(context: context, label: "No route available for selected travel mode");
+        }
+
+
       }
 
       // Update travel modes dynamically
@@ -297,7 +328,7 @@ class _AddJourneyState extends State<AddJourney> {
     List<String> availableModes = [];
 
     for (var mode in modes) {
-      final route = await getRoute(fromLocation!, toLocation!, mode);
+      final route = await LocationHelper().getRoute(fromLocation!, toLocation!, mode);
       if (route != null) availableModes.add(mode);
     }
 
@@ -353,8 +384,10 @@ class _AddJourneyState extends State<AddJourney> {
             CameraUpdate.newLatLngZoom(fromLocation!, 15));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+      if(mounted) {
+        CustomSnackbar.show(context: context, label: "Error: $e");
+      }
+
     }
   }
 
@@ -369,8 +402,10 @@ class _AddJourneyState extends State<AddJourney> {
             CameraUpdate.newLatLngZoom(toLocation!, 15));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+
+      if(mounted) {
+        CustomSnackbar.show(context: context, label: "Error: $e");
+      }
     }
   }
 
@@ -398,6 +433,7 @@ class _AddJourneyState extends State<AddJourney> {
                 ? IconButton(
               icon: const Icon(Icons.my_location),
               onPressed: () async {
+                _getUserLocation();
                 if (userLocation != null) {
                   List<Placemark> placemarks =
                   await placemarkFromCoordinates(
@@ -498,6 +534,124 @@ class _AddJourneyState extends State<AddJourney> {
     }
   }
 
+
+
+
+  Future<void> _saveRideViewers(String journeyId, Map<int, bool> selectedCompanions) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    for (var i = 0; i < _friends.length; i++) {
+      final friend = _friends[i];
+      final viewerId = friend['user_id'];
+
+      final isSelected = selectedCompanions[i] ?? false;
+
+      final response = await Supabase.instance.client
+          .from('ride_viewer')
+          .insert({
+        'journey_id': journeyId,
+        'viewer_id': viewerId,
+        'disallowed': !isSelected,
+      });
+
+      if (response != null) {
+        debugPrint("Error inserting viewer: ${response.message}");
+      }
+    }
+  }
+
+
+
+
+  Future<void> _startJourney({
+    required double pickupLat,
+    required double pickupLng,
+    required double destLat,
+    required double destLng,
+  }) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    double current_lat=0.0;
+    double current_lng=0.0;
+    if (userId == null) return;
+    _getUserLocation();
+    if(userLocation!=null){
+      current_lat=userLocation!.latitude;
+      current_lng=userLocation!.longitude;
+    }
+    else{
+      current_lat=pickupLat;
+      current_lng=pickupLng;
+    }
+
+
+    final response = await Supabase.instance.client
+        .from('user_journey')
+        .insert({
+      'user_id': userId,
+      'pickup_lat': pickupLat,
+      'pickup_lng': pickupLng,
+      'current_lat': current_lat,
+      'current_lng': current_lng,
+      'destination_lat': destLat,
+      'destination_lng': destLng,
+    }).select().single();
+
+    if (response['id'] != null) {
+      setState(() {
+        currentJourneyId = response['id'] as String;
+      });
+
+      debugPrint("Journey started with ID: $currentJourneyId");
+    }
+  }
+
+
+
+
+  Future<void> _sendJourneyNotification({
+    required String receiverId,
+    required String journeyId,
+    required String pickupAddress,
+    required String destinationAddress,
+  }) async {
+    final supabase = Supabase.instance.client;
+    final senderId = supabase.auth.currentUser?.id;
+    final senderName = (await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', senderId!)
+        .single())['full_name'] ?? 'Someone';
+
+    final url = Uri.parse(
+        '${dotenv.env['SUPABASE_URL']}/functions/v1/send_journey_notification');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${dotenv.env['SUPABASE_ANON_KEY']}',
+      },
+      body: jsonEncode({
+        'sender_id': senderId,
+        'sender_name': senderName,
+        'receiver_id': receiverId,
+        'journey_id': journeyId,
+        'pickup_address': fromController.text,
+        'destination_address': toController.text,
+      }),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      debugPrint('Notification sent to $receiverId');
+    } else {
+      debugPrint('Failed to send notification: ${response.body}');
+    }
+  }
+
+
+
+
   void _shareWithCompanion() {
     final Map<int, bool> selectedCompanions = {};
     showModalBottomSheet(
@@ -549,28 +703,164 @@ class _AddJourneyState extends State<AddJourney> {
                 ),
               ),
               ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xffffc146),
+                  foregroundColor: Colors.black87,
+                  padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:BorderRadius.circular(30),
+                  ),
+                  elevation: 4 ,
+                  shadowColor: Colors.black54,
+                ),
                 icon: const Icon(Icons.share_location_rounded),
                 label: const Text('Share Location'),
-                onPressed: () {
-                  final sharedWith = selectedCompanions.entries
-                      .where((e) => e.value)
-                      .map((e) =>
-                  _friends[e.key]['full_name'] ??
-                      _friends[e.key]['username'])
-                      .toList();
+                onPressed: () async {
+                  final sharedWith = selectedCompanions.entries.where((e) => e.value).map((e) => _friends[e.key]['full_name'] ?? _friends[e.key]['username']).toList();
 
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                          'Journey shared with: ${sharedWith.join(', ')}'),
-                    ),
-                  );
-                  Navigator.push(
+
+
+                  if (sharedWith.isEmpty) {
+                    if (mounted) {
+                      Navigator.pop(context);
+                      CustomSnackbar.show(context: context, label: "Please select at least one companion to share with");
+                    }
+                    return;
+                  }
+
+                  if(fromLocation==null || toLocation==null){
+                    if(mounted) {
+                      CustomSnackbar.show(context: context, label: "Please select both From and To locations");
+                    }
+                    return;
+                  }
+
+
+                  if(sharedWith.isNotEmpty){
+
+
+                    if (mounted) {
+                      CircularProgressIndicator();
+                      CustomSnackbar.show(context: context, label: "Starting journey...");
+                    }
+
+
+                    // Start journey and get journey ID
+                    await _startJourney(
+                      pickupLat: fromLocation!.latitude,
+                      pickupLng: fromLocation!.longitude,
+                      destLat: toLocation!.latitude,
+                      destLng: toLocation!.longitude,
+                    );
+
+
+
+                    if(currentJourneyId==null || currentJourneyId!.isEmpty){
+                      if(context.mounted) {
+                        CustomSnackbar.show(context: context, label: "Error starting journey. Please try again.");
+                      }
+                      return;
+                    }
+
+                    if(!context.mounted) return;
+                    final provider=Provider.of<JourneyProvider>(context,listen: false);
+
+                    // Run save operations in parallel
+                    await Future.wait([
+                      provider.saveActiveJourney(
+                        instructions: _instructions,
+                        markers: markers,
+                        polylines: polylines,
+                        journeyId: currentJourneyId!,
+                        pickup: fromLocation!,
+                        destination: toLocation!,
+                        currentLocation: userLocation!,
+                        travelMode: travelMode,
+                      ),
+                      _saveRideViewers(currentJourneyId!, selectedCompanions),
+                    ]);
+
+
+
+
+                    final notificationFutures = selectedCompanions.entries
+                        .where((entry) => entry.value)
+                        .map((entry) {
+                      final friend = _friends[entry.key];
+                      return _sendJourneyNotification(
+                        receiverId: friend['user_id'],
+                        journeyId: currentJourneyId!,
+                        pickupAddress: fromController.text,
+                        destinationAddress: toController.text,
+                      );
+                    }).toList();
+
+                    Future.wait(notificationFutures).catchError((error) {
+                      print('Notification error: $error');
+                      return error;
+                    });
+
+
+
+
+
+
+
+
+
+                    if(!context.mounted) return;
+                    Navigator.pop(context);
+                    CustomSnackbar.show(context: context, label: "Journey shared with: ${sharedWith.join(', ')}");
+
+
+
+
+
+
+
+
+
+
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => JourneyViewers(
-                              markers: markers, polylines: polylines)));
+                        builder: (context) =>
+                            JourneyViewers(
+                                markers: markers,
+                                polylines: polylines,
+                                journeyId: currentJourneyId!,
+                                travelMode: travelMode,
+                                fromLocation: fromLocation!,
+                                toLocation: toLocation!,
+                                userLocation: userLocation,
+                                instructions:_instructions),
+                      ),
+                    );
+
+
+
+
+
+
+                  }else{
+                    if(mounted) {
+                      Navigator.pop(context);
+                      CustomSnackbar.show(context: context, label: "Please select at least one companion to share with");
+
+                    }
+                  }
+
+
+
+
+
+
+
+
                 },
               ),
               const SizedBox(height: 16),
@@ -665,6 +955,20 @@ class _AddJourneyState extends State<AddJourney> {
                     ),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xffffc146),
+                      foregroundColor: Colors.black87,
+                      padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:BorderRadius.circular(30),
+                      ),
+                      elevation: 4 ,
+                      shadowColor: Colors.black54,
+                    ),
                     icon: const Icon(Icons.share_location_rounded),
                     label: const Text('Share with Companion'),
                     onPressed: _shareWithCompanion,

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'active_journey_list.dart';
 import 'companionsscreen.dart';
 import 'dashboard.dart';
 
@@ -34,13 +35,14 @@ class _HomePageState extends State<HomePage> {
     ),
 
     CurvedNavigationBarItem(
-        child:Icon(Icons.people_alt_outlined),
-        label: 'Friends'
+        child:Icon(Icons.mode_of_travel_outlined),
+        label: 'Rides'
     ),
 
     CurvedNavigationBarItem(
         child:Icon(Icons.settings),
         label: 'Settings'
+
     )
 
 
@@ -55,7 +57,7 @@ class _HomePageState extends State<HomePage> {
     screens = <Widget>[
       Dashboard(user: user),
       CompanionsScreen(),
-      CompanionsScreen(),
+      JourneyViewersListScreen(),
       SettingPage(user: user,),
     ];
   }

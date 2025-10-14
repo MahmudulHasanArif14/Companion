@@ -1,13 +1,24 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 
 class AzureTTSController {
+
+  AzureTTSController(){
+    loadEnvFiles();
+  }
+
+  Future<void> loadEnvFiles() async {
+    await dotenv.load(fileName: ".env");
+  }
+
+
   final AudioPlayer _player = AudioPlayer();
-  final String _subscriptionKey = "qJt122z7HesHEfWe7gxjzFpfihHoOxseP8yKXFqmbHxDuXgCqSu7JQQJ99BIACqBBLyXJ3w3AAAYACOGcuGt";
+  final String _subscriptionKey = dotenv.env['AZURE_TTS_KEY'] ?? "";
   final String _region = "southeastasia";
   final String _selectedVoice = 'en-GB-SoniaNeural';
 

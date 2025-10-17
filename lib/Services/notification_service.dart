@@ -146,13 +146,19 @@ class NotificationService {
 
 
       try {
-        await _supabase
-            .from('profiles')
-            .upsert({
-          'id': userId,
-          'fcm_token': token,
+        // await _supabase
+        //     .from('profiles')
+        //     .upsert({
+        //   'id': userId,
+        //   'fcm_token': token,
+        //   'updated_at': DateTime.now().toIso8601String(),
+        // },onConflict:('id'),ignoreDuplicates: true).single();
+
+
+        await _supabase.from("profiles").update({
+          'fcm_token':token,
           'updated_at': DateTime.now().toIso8601String(),
-        },onConflict:('id'),ignoreDuplicates: true).single();
+        }).eq("id", userId);
 
 
 
@@ -165,11 +171,23 @@ class NotificationService {
 
       // Handle token refresh
       _messaging.onTokenRefresh.listen((newToken) async {
-        await _supabase.from('profiles').upsert({
-          'id': userId,
-          'fcm_token': newToken,
+        // await _supabase.from('profiles').upsert({
+        //   'id': userId,
+        //   'fcm_token': newToken,
+        //   'updated_at': DateTime.now().toIso8601String(),
+        // },onConflict: 'id',ignoreDuplicates: true).single();
+        //
+
+        await _supabase.from("profiles").update({
+          'fcm_token':newToken,
           'updated_at': DateTime.now().toIso8601String(),
-        },onConflict: 'id',ignoreDuplicates: true);
+        }).eq("id", userId);
+
+
+
+
+
+
       });
     } catch (e) {
       if (kDebugMode) print('Error registering device token: $e');

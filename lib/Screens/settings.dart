@@ -203,7 +203,7 @@ class _SettingPageState extends State<SettingPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => TeamDetailsScreen(),
+                              builder: (context) => TeamScreen(),
                             ),
                           );
                         },

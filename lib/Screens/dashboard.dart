@@ -6,8 +6,10 @@ import 'package:companion/Screens/settings.dart';
 import 'package:companion/Services/notification_service.dart';
 import 'package:companion/core/utils/constant.dart';
 import 'package:companion/database/database_helper.dart';
+import 'package:companion/widgets/custom_snackbar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -537,6 +539,7 @@ class _DashboardState extends State<Dashboard> {
   void _navigateToActiveJourney(JourneyProvider provider) {
     provider.loadActiveJourney();
 
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -707,6 +710,10 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    await FlutterPhoneDirectCaller.callNumber(phoneNumber);
+  }
+
   Widget _buildCheckInButton() {
     return ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
@@ -719,7 +726,10 @@ class _DashboardState extends State<Dashboard> {
       icon: const Icon(Icons.check_circle_outline),
       label: const Text('Check in'),
       onPressed: () {
-        // TODO: Implement check-in functionality
+
+
+
+
       },
     );
   }
@@ -737,6 +747,24 @@ class _DashboardState extends State<Dashboard> {
       label: const Text('SOS', style: TextStyle(color: Colors.red)),
       onPressed: () {
         // TODO: Implement SOS functionality
+
+
+        //   check is number available
+        final provider=Provider.of<DatabaseHelperProvider>(context,listen: false);
+        final profileData=provider.userInfo;
+        final emergencyNum=profileData?["emergency_contact"].toString();
+
+        print(emergencyNum.toString());
+        if(emergencyNum==null || emergencyNum.toString().isEmpty){
+
+          CustomSnackbar.show(context: context, label: "No Number Available To Use This Feature Update Emergency Contact Num");
+
+        }
+
+        print("Calling");
+
+        _makePhoneCall(emergencyNum!);
+
       },
     );
   }

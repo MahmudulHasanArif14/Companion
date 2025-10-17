@@ -48,6 +48,8 @@ unlinked.ds
 unlinked_spec.ds
 /assets/service-account.json
 
+/assets/images/credentials.json
+
 # Android related
 **/android/**/gradle-wrapper.jar
 .gradle/

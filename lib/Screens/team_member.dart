@@ -1,153 +1,140 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
-// --- Data Model ---
-class TeamMember {
-  final String name;
-  final String role;
-  final String details;
-  final Color avatarColor;
-  final IconData icon;
-
-  TeamMember({
-    required this.name,
-    required this.role,
-    required this.details,
-    required this.avatarColor,
-    required this.icon,
-  });
-}
-
-// --- Team Data (Supervisor + 3 Members) ---
-final List<TeamMember> team = [
-  TeamMember(
-    name: 'Dr. Evelyn Reed',
-    role: 'Supervisor / Project Lead',
-    details: 'Oversees technical direction, strategic planning, and quality assurance.',
-    avatarColor: Colors.teal.shade800,
-    icon: Icons.local_police,
-  ),
-  TeamMember(
-    name: 'Alex Johnson',
-    role: 'Lead Developer (Frontend)',
-    details: 'Responsible for the user interface, state management, and overall UX implementation.',
-    avatarColor: Colors.blue.shade600,
-    icon: Icons.code,
-  ),
-  TeamMember(
-    name: 'Maria Sanchez',
-    role: 'Backend & Database Specialist',
-    details: 'Manages API design, data integrity, and cloud integration (Firestore/Auth).',
-    avatarColor: Colors.purple.shade600,
-    icon: Icons.storage,
-  ),
-  TeamMember(
-    name: 'Kenji Tanaka',
-    role: 'Testing & Deployment Engineer',
-    details: 'Handles unit and integration tests, CI/CD pipelines, and app store submission.',
-    avatarColor: Colors.orange.shade600,
-    icon: Icons.bug_report,
-  ),
-];
-
-// --- Reusable Widget for a Team Member Card ---
-class TeamMemberCard extends StatelessWidget {
-  final TeamMember member;
-
-  const TeamMemberCard({super.key, required this.member});
+class TeamScreen extends StatelessWidget {
+  const TeamScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Determine the color gradient based on the role
-    Color startColor = member.role.contains('Supervisor')
-        ? Colors.teal.shade50
-        : Colors.white;
-    Color endColor = member.role.contains('Supervisor')
-        ? Colors.teal.shade100
-        : Colors.grey.shade50;
-
-    return Card(
-      elevation: 6,
-      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15),
-        side: member.role.contains('Supervisor')
-            ? BorderSide(color: Colors.teal.shade700, width: 2)
-            : BorderSide.none,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          gradient: LinearGradient(
-            colors: [startColor, endColor],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: const Text(
+          'Our Team',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
-        padding: const EdgeInsets.all(16.0),
+        centerTitle: true,
+        backgroundColor: Colors.blue[700],
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                // Avatar with Icon
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: member.avatarColor,
-                  child: Icon(
-                    member.icon,
-                    color: Colors.white,
-                    size: 30,
+          children: [
+            // Supervisor Section
+            _buildSectionTitle('Supervisor'),
+            const SizedBox(height: 16),
+            _buildSupervisorCard(),
+
+            const SizedBox(height: 32),
+
+            // Team Members Section
+            _buildSectionTitle('Team Members'),
+            const SizedBox(height: 16),
+            _buildTeamMembersGrid(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.bold,
+        color: Colors.blueGrey,
+      ),
+    );
+  }
+
+  Widget _buildSupervisorCard() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.blue[700]!, Colors.blue[800]!],
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            // Photo
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+                image: const DecorationImage(
+                  image: NetworkImage(
+                    'https://lus.ac.bd/wp-content/uploads/2023/07/Naeem--250x250.jpg',
                   ),
+                  fit: BoxFit.cover,
                 ),
-                const SizedBox(width: 15),
-                // Name and Role
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        member.name,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: member.role.contains('Supervisor')
-                              ? Colors.teal.shade900
-                              : Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        member.role,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: member.role.contains('Supervisor')
-                              ? Colors.teal.shade600
-                              : Colors.blueGrey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 25, color: Colors.black12),
-            // Details Section
-            Text(
-              'Key Responsibilities:',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade700,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              member.details,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-                fontStyle: FontStyle.italic,
+            const SizedBox(width: 20),
+
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nayeem Ahsan Chowdhury',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lecturer',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Department Of CSE, Leading University, Sylhet',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.amber[700],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Supervisor',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -155,69 +142,140 @@ class TeamMemberCard extends StatelessWidget {
       ),
     );
   }
-}
 
-// --- Main Screen Widget ---
-class TeamDetailsScreen extends StatelessWidget {
-  const TeamDetailsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Development Team Directory'),
-        centerTitle: true,
-        backgroundColor: Colors.teal,
-        elevation: 0,
+  Widget _buildTeamMembersGrid() {
+    final teamMembers = [
+      _TeamMember(
+        name: 'Safayet Alam',
+        department: 'UI/UX Designer',
+          photoUrl: "assets/images/siam.png",
       ),
-      body: Container(
+      _TeamMember(
+        name: 'Md. Ahmed Alif',
+        department: 'FrontEnd Developer',
+        photoUrl: 'assets/images/alif.png',
+      ),
+      _TeamMember(
+        name: 'Mahmudul Hasan Arif',
+        department: 'Developer',
+        photoUrl: 'assets/images/arif.jpg',
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: teamMembers.length,
+      itemBuilder: (context, index) {
+        return _buildTeamMemberCard(teamMembers[index],context);
+      },
+    );
+  }
+
+  Widget _buildTeamMemberCard(_TeamMember member,BuildContext context) {
+    final String url = member.photoUrl;
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
         decoration: BoxDecoration(
-          color: Colors.grey.shade100, // Light background for the list
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Colors.grey[100]!],
+          ),
         ),
-        child: ListView.builder(
-          padding: const EdgeInsets.only(top: 10, bottom: 20),
-          itemCount: team.length,
-          itemBuilder: (context, index) {
-            // Add a small header before the first card (Supervisor)
-            if (index == 0) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: Text(
-                      'Project Leadership',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.teal,
-                      ),
-                    ),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Profile Photo - Responsive
+              Container(
+                width: MediaQuery.of(context).size.width * 0.15,
+                height: MediaQuery.of(context).size.width * 0.15,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.blue[300]!, width: 2),
+                  image: DecorationImage(
+                    image: AssetImage(url),
+                    fit: BoxFit.cover,
                   ),
-                  TeamMemberCard(member: team[index]),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 20, 16, 4),
-                    child: Text(
-                      'Core Development Team',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.teal,
-                      ),
-                    ),
+                ),
+              ),
+              SizedBox(height: 16),
+
+              // Name - Responsive
+              Text(
+                member.name,
+                style: TextStyle(
+                  fontSize: MediaQuery.of(context).size.width * 0.035, // Responsive font
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueGrey,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+
+              SizedBox(height: 8),
+
+              // Department - Responsive
+              Text(
+                member.department,
+                style: TextStyle(
+                  fontSize: MediaQuery.of(context).size.width * 0.028,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+
+              SizedBox(height: 12),
+
+              // Role Badge
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue[100]!),
+                ),
+                child: Text(
+                  'Team Member',
+                  style: TextStyle(
+                    fontSize: MediaQuery.of(context).size.width * 0.025,
+                    color: Colors.blue[700],
+                    fontWeight: FontWeight.w500,
                   ),
-                ],
-              );
-            }
-            // Normal card for team members
-            return TeamMemberCard(member: team[index]);
-          },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
 }
 
+class _TeamMember {
+  final String name;
+  final String department;
+  final String photoUrl;
 
-
-
+  const _TeamMember({
+    required this.name,
+    required this.department,
+    required this.photoUrl,
+  });
+}

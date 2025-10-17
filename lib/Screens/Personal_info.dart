@@ -1,4 +1,5 @@
 
+import 'package:companion/widgets/custom_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:provider/provider.dart';
@@ -71,7 +72,7 @@ class _ProfileDetailsState extends State<ProfileDetails> {
                 children: [
                   InfoTile(
                     value:profile["full_name"] ?? "",
-                    readOnly:true,
+                    readOnly:false,
                     title: "Full Name",
                     fieldKey: "full_name",
                     activeField: _activeField,
@@ -149,7 +150,7 @@ class _ProfileDetailsState extends State<ProfileDetails> {
                     fieldKey: "gender",
                     activeField: _activeField,
                     onItemChanged: (newValue) {
-                     // _updateField(context, "gender", newValue!);
+                      _updateField(context, "gender", newValue!);
                     },
                     onFocusChange: (isFocused) {
                       setState(() => _activeField = isFocused ? "gender" : null);
@@ -157,11 +158,18 @@ class _ProfileDetailsState extends State<ProfileDetails> {
                   ),
                   InfoTile(
                     value: profile["emergency_contact"] ?? "",
-                    title: "Emergency Contact",
+                    title: "Emergency Contact Without County Code",
                     fieldKey: "emergency_contact",
                     activeField: _activeField,
                     onChanged: (newValue) {
-                      _updateField(context, "emergency_contact", newValue);
+
+                      if(newValue.length==11 && RegExp(r'^(013|014|015|016|017|018|019)\d{8}$').hasMatch(newValue)){
+                            _updateField(context, "emergency_contact", newValue);
+                      }
+                      else{
+                        CustomSnackbar.show(context: context, label: 'Invalid Phone Number');
+                      }
+
                     },
                     onFocusChange: (isFocused) {
                       setState(() => _activeField = isFocused ? "emergency_contact" : null);

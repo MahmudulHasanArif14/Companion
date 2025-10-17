@@ -1,3 +1,4 @@
+import 'package:companion/widgets/custom_snackbar.dart';
 import 'package:flutter/material.dart';
 import '../widgets/custom_textformfield.dart';
 import 'email_registration.dart';
@@ -14,6 +15,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController firstName = TextEditingController();
   final TextEditingController lastName = TextEditingController();
   final FocusNode nameFocusNode = FocusNode();
+   bool isValidate = false;
+
 
   @override
   void initState() {
@@ -30,6 +33,19 @@ class _RegistrationPageState extends State<RegistrationPage> {
     nameFocusNode.dispose();
     super.dispose();
   }
+
+
+  bool _isFullNameValid() {
+    final fullName = '${firstName.text} ${lastName.text}'.trim();
+    return fullName.isNotEmpty &&
+        fullName.length >= 3 &&
+        RegExp(r'^[a-zA-Z ]+$').hasMatch(fullName);
+  }
+
+  bool _isFormValid() {
+    return _formKey.currentState?.validate() == true && _isFullNameValid();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -93,9 +109,19 @@ class _RegistrationPageState extends State<RegistrationPage> {
                           if (value == null || value.trim().isEmpty) {
                             return "First Name can't be empty";
                           }
+                          if (!RegExp(r'^[a-zA-Z]+( [a-zA-Z]+)*$').hasMatch(value.trim())) {
+                            return "Only letters allowed";
+                          }
+                          if (value.trim().length < 2) {
+                            return "At least 2 characters required";
+                          }
+
                           return null;
                         },
-                        onChanged: (_) => _formKey.currentState!.validate(),
+                        onChanged: (_) {
+                          setState(() {});
+                          _formKey.currentState!.validate();
+                        },
                       ),
 
                       const SizedBox(height: 24),
@@ -111,9 +137,18 @@ class _RegistrationPageState extends State<RegistrationPage> {
                           if (value == null || value.trim().isEmpty) {
                             return "Last Name can't be empty";
                           }
+                          if (!RegExp(r'^[a-zA-Z]+( [a-zA-Z]+)*$').hasMatch(value.trim())) {
+                            return "Only letters allowed";
+                          }
+                          if (value.trim().length < 2) {
+                            return "At least 2 characters required";
+                          }
                           return null;
                         },
-                        onChanged: (_) => _formKey.currentState!.validate(),
+                        onChanged: (_) {
+                          setState(() {});
+                          _formKey.currentState!.validate();
+                        }
                       ),
 
                       SizedBox(height: size.height*.44),
@@ -132,13 +167,15 @@ class _RegistrationPageState extends State<RegistrationPage> {
                           shadowColor: Colors.black54,
                         ),
                         onPressed: () {
-                          if (_formKey.currentState!.validate()) {
+                          if (_isFormValid()) {
                             String fullName='${firstName.text} ${lastName.text}';
 
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) =>  EmailRegistration(fullName: fullName,)),
                             );
+                          }else{
+                            CustomSnackbar.show(context: context, label: "Please enter a valid name");
                           }
                         },
                         child: const Row(

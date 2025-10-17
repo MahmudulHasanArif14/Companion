@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:companion/Screens/login_page.dart';
 import 'package:companion/Screens/permission_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,8 +9,8 @@ import '../Auth/auth_helper.dart';
 import '../widgets/custom_snackbar.dart';
 
 class EmailVerification extends StatefulWidget {
-   final User? user;
-   const EmailVerification({super.key,this.user});
+   final User user;
+   const EmailVerification({super.key,required this.user});
 
   @override
   State<EmailVerification> createState() => _EmailVerificationState();
@@ -38,12 +39,6 @@ class _EmailVerificationState extends State<EmailVerification> {
         if (updatedUser != null && updatedUser.emailConfirmedAt != null) {
           timer.cancel();
 
-          // store UniqueUserName
-          final displayName = updatedUser.userMetadata?['full_name'] ?? 'user';
-
-          await OauthHelper().setUsernameOnce(defaultUsername: displayName);
-
-
 
             //   Navigate to Consent Screen
             if(mounted){
@@ -62,6 +57,22 @@ class _EmailVerificationState extends State<EmailVerification> {
 
   }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   @override
   void dispose() {
     _emailCheckTimer?.cancel();
@@ -71,7 +82,7 @@ class _EmailVerificationState extends State<EmailVerification> {
 
   void resendLink() async {
     setState(() {
-      isSend = true;
+       isSend = true;
       _resendTime = 30;
     });
 
@@ -93,7 +104,9 @@ class _EmailVerificationState extends State<EmailVerification> {
       if (mounted) {
         CustomSnackbar.show(
           context: context,
-          label: 'Verification email sent again.',
+          label: 'Verification email sent.',
+          color: Color(0xE04CAF50),
+          svgColor: Color(0xE0178327),
         );
       }
     } catch (e) {
@@ -161,11 +174,11 @@ class _EmailVerificationState extends State<EmailVerification> {
 
             const SizedBox(height: 12),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
               child: Text(
-                'To confirm your email address tap the button in the email we sent to\nlessahduf@gmail.com',
-                style: TextStyle(color: Colors.white70),
+                'To confirm your email address tap the button in the email we sent to\n ${widget.user?.email ?? OauthHelper.currentUser()?.email}',
+                style: const TextStyle(color: Colors.white70),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -213,15 +226,19 @@ class _EmailVerificationState extends State<EmailVerification> {
                   ),
                   TextButton(
                     onPressed: () {
-                      // Add logic to sign in or go back
-                    },
+                      // GO to Login Page
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>LoginPage()));
+
+
+
+                      },
                     child: RichText(
                       text: const TextSpan(
                         text: 'Check your spam folder or ',
                         style: TextStyle(color: Colors.white70),
                         children: [
                           TextSpan(
-                            text: 'Sign in',
+                            text: 'Log in',
                             style: TextStyle(color: Colors.pinkAccent),
                           ),
                         ],

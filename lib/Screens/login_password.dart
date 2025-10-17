@@ -1,7 +1,9 @@
+import 'package:companion/Screens/verification_page.dart';
 import 'package:flutter/material.dart';
 
 import '../Auth/auth_helper.dart';
 import '../widgets/custom_textformfield.dart';
+import 'reset_page.dart';
 import 'home_page.dart';
 
 class LoginPassword extends StatefulWidget {
@@ -235,9 +237,23 @@ class _LoginPasswordState extends State<LoginPassword> {
                             splashFactory: NoSplash.splashFactory,
                             overlayColor: Colors.black,
                           ),
-                          child: const Text(
-                            'Forgot Password ?',
-                            style: TextStyle(color: Color(0xffffc146)),
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        VerificationPage(
+                                          isReset: true,
+                                          email: widget.emailAddress.trim(),
+                                        ),
+                                  ),
+                              );
+                            }, 
+                            child: const Text(
+                              'Forgot Password ?',
+                              style: TextStyle(color: Color(0xffffc146)),
+                            ),
                           ),
                         ),
                       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/utils/constant.dart';
 import 'add_place_map_screen.dart';
 
 class PlacesScreen extends StatelessWidget {
@@ -43,7 +44,7 @@ class PlacesScreen extends StatelessWidget {
           if (!isAddNew)
             Icon(Icons.close, color: Colors.purple.withOpacity(0.8)),
           if (showBell) const SizedBox(width: 12),
-          if (showBell) const Icon(Icons.notifications, color: Colors.purple),
+          if (showBell) Icon(Icons.notifications, color: AppColors.getIconColor(context)),
         ],
       ),
       onTap: () {
@@ -62,7 +63,7 @@ class PlacesScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Places"),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon:  Icon(Icons.arrow_back,color: AppColors.getAppBarColor(context),),
           onPressed: () => Navigator.pop(context),
         ),
       ),

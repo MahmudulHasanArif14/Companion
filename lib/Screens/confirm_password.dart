@@ -1,24 +1,26 @@
-import 'package:companion/Screens/confirm_password.dart';
 import 'package:flutter/material.dart';
 import '../Auth/auth_helper.dart';
 import '../widgets/custom_snackbar.dart';
 import '../widgets/custom_textformfield.dart';
 
-class CreatePassword extends StatefulWidget {
-  final String fullName,emailAddress;
-  const CreatePassword({super.key, required this.fullName, required this.emailAddress});
+class ConfirmPassword extends StatefulWidget {
+  final String fullName,emailAddress,password;
+
+
+  const ConfirmPassword({super.key, required this.fullName, required this.emailAddress, required this.password});
 
   @override
-  State<CreatePassword> createState() => _CreatePasswordState();
+  State<ConfirmPassword> createState() => _ConfirmPasswordState();
 }
 
-class _CreatePasswordState extends State<CreatePassword> with SingleTickerProviderStateMixin {
+class _ConfirmPasswordState extends State<ConfirmPassword> with SingleTickerProviderStateMixin {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController passwordController = TextEditingController();
   final FocusNode passFocusNode = FocusNode();
 
   bool isLengthValid = false;
   bool isPatternValid = false;
+  bool isPasswordMatch = false;
   bool obscurePassword = true;
 
   late AnimationController _shakeController;
@@ -57,8 +59,11 @@ class _CreatePasswordState extends State<CreatePassword> with SingleTickerProvid
     setState(() {
       isLengthValid = password.length >= 8;
       isPatternValid = RegExp(
-          r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@\$!%*?&])',
+        r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@\$!%*?&])',
       ).hasMatch(password);
+      if(password == widget.password){
+        isPasswordMatch=true;
+      }
     });
   }
 
@@ -69,7 +74,26 @@ class _CreatePasswordState extends State<CreatePassword> with SingleTickerProvid
 
 
 
+  final OauthHelper _authHelper = OauthHelper();
 
+  void _registerUser(String email,String password,String name) async {
+
+    if (email.isNotEmpty && password.isNotEmpty && name.isNotEmpty) {
+      await _authHelper.signUp(
+        email: email,
+        password: password,
+        context: context,
+        name: name,
+      );
+
+
+    } else {
+      CustomSnackbar.show(
+        context: context,
+        label: "Email And Password Can't be Null",
+      );
+    }
+  }
 
 
   @override
@@ -101,12 +125,12 @@ class _CreatePasswordState extends State<CreatePassword> with SingleTickerProvid
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        "Step 3 of 4",
+                        "Step 4 of 4",
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        "Create Your Password",
+                        "Confirm Your Password",
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -124,7 +148,7 @@ class _CreatePasswordState extends State<CreatePassword> with SingleTickerProvid
                         },
                         child: CustomTextField(
                           controller: passwordController,
-                          hintText: "Password",
+                          hintText: "Confirm Password",
                           obscureText: obscurePassword,
                           icon: const Icon(
                             Icons.lock_outline,
@@ -148,8 +172,11 @@ class _CreatePasswordState extends State<CreatePassword> with SingleTickerProvid
                             if (value == null || value.trim().isEmpty) {
                               return 'Password cannot be empty';
                             }
-                            if (!isLengthValid || !isPatternValid) {
+                            if (!isLengthValid || !isPatternValid ) {
                               return 'Password doesn\'t meet the requirements';
+                            }
+                            if(!isPasswordMatch){
+                              return 'Passwords and confirm password doesn\'t match';
                             }
                             return null;
                           },
@@ -211,19 +238,20 @@ class _CreatePasswordState extends State<CreatePassword> with SingleTickerProvid
                               elevation:   4,
                               shadowColor: Colors.black54,
                             ),
-                            onPressed: (isLengthValid && isPatternValid)
+                            onPressed: (isLengthValid && isPatternValid && isPasswordMatch)
                                 ? () {
-                                    if (_formKey.currentState!.validate()) {
+                              if (_formKey.currentState!.validate()) {
 
 
-                                      Navigator.push(context, MaterialPageRoute(builder: (context)=>ConfirmPassword(fullName: widget.fullName, emailAddress: widget.emailAddress, password: passwordController.text)));
+
+                                _registerUser(widget.emailAddress.trim(),passwordController.text.trim(),widget.fullName.trim());
 
 
-                                    }
-                                  }
+                              }
+                            }
                                 : () {
-                                    _triggerShake();
-                                  },
+                              _triggerShake();
+                            },
                             child: const Text("Continue"),
                           ),
                         ),
@@ -233,9 +261,39 @@ class _CreatePasswordState extends State<CreatePassword> with SingleTickerProvid
                 ),
               ),
             ),
-          ),
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         ),
       ),
+    )
     );
   }
 }

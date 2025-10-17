@@ -11,11 +11,13 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supaBase;
 
 import '../Screens/email_verification.dart';
 import '../Screens/home_page.dart';
+import '../Screens/reset_page.dart';
 import '../core/utils/username_generator.dart';
+import '../main.dart';
 import '../widgets/custom_snackbar.dart';
 
 class OauthHelper {
-  supaBase.SupabaseClient supabaseInstance = supaBase.Supabase.instance.client;
+  static supaBase.SupabaseClient supabaseInstance = supaBase.Supabase.instance.client;
 
   // Register new user to the system
   Future<void> signUp({
@@ -25,11 +27,22 @@ class OauthHelper {
     required String name,
     String? fullPhoneNumber,
   }) async {
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+
     // UserName email or password Null check
     if (email.isEmpty || password.isEmpty || name.isEmpty) {
       if (context.mounted) {
         CustomSnackbar.show(context: context, label: "Fields can't be null");
       }
+      Navigator.pop(context);
       return;
     }
 
@@ -41,23 +54,26 @@ class OauthHelper {
         data: {"phone": fullPhoneNumber, "name": name},
       );
 
+
+
+
       // If not Email Verified goto verificationPage
       if (res.user != null && res.user?.emailConfirmedAt == null) {
 
-
-
+        Navigator.of(context).pop();
         // Navigate to Verification Page
         if (context.mounted) {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) =>
-                  EmailVerification(user: res.user,),
+                  EmailVerification(user: res.user!,),
             ),
           );
         }
       }
     } on supaBase.AuthException catch (e) {
+      Navigator.of(context).pop();
       if (context.mounted) {
         CustomSnackbar.show(context: context, label: (e.message));
       }
@@ -74,6 +90,10 @@ class OauthHelper {
 
 
 
+
+
+
+  // User Name Updating  Function
   Future<void> setUsernameOnce({required String defaultUsername}) async {
     final supabase = supaBase.Supabase.instance.client;
     final user = supabase.auth.currentUser;
@@ -99,17 +119,19 @@ class OauthHelper {
 
 
 
+  // Generating Own Customer UserName from lname
   Future<String> getUniqueUsername(String baseName) async {
     String username = UsernameGenerator.generateUsername(baseName);
 
-    final res = await supabaseInstance
-        .from('profiles')
+
+    // Checking if the generated UserName is Unique or not
+    final res = await supabaseInstance.from('profiles')
         .select('username')
         .eq('username', username)
         .maybeSingle();
 
     if (res != null) {
-      // Try again recursively or add a new suffix
+      // Try again to generate new one
       return getUniqueUsername(baseName);
     } else {
       return username;
@@ -119,6 +141,73 @@ class OauthHelper {
 
 
 
+
+  static Future<void> updateName(BuildContext context, String name) async {
+
+
+    final currentUser=supabaseInstance.auth.currentUser;
+
+    if(currentUser==null){
+      if(context.mounted){
+        CustomSnackbar.show(context: context, label: "No User Found");
+      }
+      return;
+    }
+
+     try{
+       await supabaseInstance.from('profiles').update({
+         'full_name': name,
+       }).eq('id', currentUser.id);
+
+
+     }catch(e){
+       if(!context.mounted) return;
+       print("Error updating Name");
+       CustomSnackbar.show(context: context, label: "Error Updating Name");
+     }
+
+
+   }
+
+
+   static Future<void> updatePhoneNo(BuildContext context)async {
+     final currentUser=supabaseInstance.auth.currentUser;
+
+     if(currentUser==null){
+       if(context.mounted){
+         CustomSnackbar.show(context: context, label: "No User Found");
+
+       }
+       return;
+     }
+
+
+     final userPhoneNo=currentUser.userMetadata?['phone'];
+
+
+     if(userPhoneNo==null){
+       return;
+     }else{
+
+       try{
+
+         await supabaseInstance.from('profiles').update({
+           'phone': userPhoneNo,
+         }).eq('id', currentUser.id);
+
+
+
+       }catch(e){
+         if(!context.mounted) return;
+         print("Error updating Number");
+         CustomSnackbar.show(context: context, label: "Error Updating Name");
+       }
+
+
+
+
+     }
+   }
 
 
 
@@ -140,13 +229,14 @@ class OauthHelper {
       // Resending the link
       await supaBase.Supabase.instance.client.auth.signInWithOtp(
         email: user.email,
-        emailRedirectTo: 'io.supabase.flutterquickstart://login-callback',
+        emailRedirectTo: "io.supabase.flutterquickstart://login-callback",
       );
+
       if (context.mounted) {
         CustomSnackbar.show(
           title: '🎉 Woohoo! All Done!',
           context: context,
-          label: 'Verification email sent successfully!',
+          label: 'Verification Mail Sent Successfully!',
           color: Color(0xE04CAF50),
           svgColor: Color(0xE0178327),
         );
@@ -359,7 +449,7 @@ class OauthHelper {
 
   //   deeplink configure
 
-  static void configDeepLink(BuildContext context) {
+  static void configDeepLink() {
     final appLinks = AppLinks();
 
     appLinks.uriLinkStream.listen(
@@ -373,14 +463,32 @@ class OauthHelper {
         if (uri.host == 'reset-password') {
           final code = uri.queryParameters['code'];
 
-          if (code != null) {
-            // if (context.mounted) {
-            //   Navigator.pushReplacement(
-            //     context,
-            //     MaterialPageRoute(builder: (context) => ResetPasswordScreen()),
+          if (code != null && code.isNotEmpty) {
+
+              // navigatorKey.currentState?.pushAndRemoveUntil(
+              //   MaterialPageRoute(builder: (_) => ResetPasswordScreen()),
+              //       (route) => false,
+              // );
+
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(builder: (context)=>ResetPasswordScreen())
+            );
+
+
+            // WidgetsBinding.instance.addPostFrameCallback((_) {
+            //   Navigator.of(context).push(
+            //     MaterialPageRoute(builder: (_) => ResetPasswordScreen()),
             //   );
-            // }
-          } else {
+            // });
+
+              // Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context)=>ResetPasswordScreen()),
+              //     (Route<dynamic>route)=>false,
+              // );
+
+
+
+          }
+          else {
             if (kDebugMode) {
               print("Recovery code is missing from URI");
             }
@@ -419,7 +527,16 @@ class OauthHelper {
         }
 
         // Password updated successfully
-        if (context.mounted) {}
+        if (context.mounted) {
+          CustomSnackbar.show(
+            context: context,
+            label: "Password Updated Successfully",
+          );
+
+          Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context)=>HomePage(user: response.user!)), (route) => false,);
+
+
+        }
       } else {
         // Handle error
         if (context.mounted) {

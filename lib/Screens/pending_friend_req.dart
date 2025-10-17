@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/utils/constant.dart';
+
 class PendingFriendRequestsScreen extends StatefulWidget {
   final String currentUserId;
 
@@ -168,13 +170,19 @@ class _PendingFriendRequestsScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Pending Friend Requests"),
+        elevation: 0,
+        automaticallyImplyLeading: true,
+        leading: IconButton(onPressed: (){
+          Navigator.pop(context);
+        }, icon: Icon(Icons.arrow_back, color: AppColors.getAppBarColor(context))),
+        animateColor: true,
+        title: const Text("Requests"),
         centerTitle: true,
       ),
       body: _requests.isEmpty
           ? const Center(
         child: Text(
-          "No pending friend requests 🎉",
+          "No pending friend requests",
           style: TextStyle(fontSize: 16),
         ),
       )

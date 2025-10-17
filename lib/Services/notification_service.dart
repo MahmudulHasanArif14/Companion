@@ -7,8 +7,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:googleapis_auth/auth_io.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -142,12 +144,24 @@ class NotificationService {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      // Use upsert to ensure the token is always updated
-      await _supabase.from('profiles').upsert({
-        'id': userId,
-        'fcm_token': token,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+
+      try {
+        await _supabase
+            .from('profiles')
+            .upsert({
+          'id': userId,
+          'fcm_token': token,
+          'updated_at': DateTime.now().toIso8601String(),
+        },onConflict:('id'),ignoreDuplicates: true).single();
+
+
+
+        if (kDebugMode) {
+          print('FCM token saved/updated successfully');
+        }
+      } catch (e) {
+        print('Error saving FCM token: $e');
+      }
 
       // Handle token refresh
       _messaging.onTokenRefresh.listen((newToken) async {
@@ -155,7 +169,7 @@ class NotificationService {
           'id': userId,
           'fcm_token': newToken,
           'updated_at': DateTime.now().toIso8601String(),
-        });
+        },onConflict: 'id',ignoreDuplicates: true);
       });
     } catch (e) {
       if (kDebugMode) print('Error registering device token: $e');
@@ -343,6 +357,91 @@ class NotificationService {
       if (kDebugMode) print('Error sending friend request accepted notification: $e');
     }
   }
+
+
+  // Send notification using FCM HTTP v1 API
+  Future<void> sendPushNotification(
+      String userId, {
+        required String title,
+        required String body,
+      }) async {
+
+    //  Get FCM token for sender
+    final response = await Supabase.instance.client
+        .from('profiles')
+        .select('fcm_token')
+        .eq('id', userId)
+        .single();
+
+    final fcmToken = response['fcm_token'];
+    if (fcmToken == null) {
+      print('No FCM token found for user $userId');
+      return;
+    }
+
+    final jsonString = await rootBundle.loadString('assets/images/service-account.json');
+    final jsonData = jsonDecode(jsonString);
+
+    print("JSON Data: $jsonData");
+
+    final client = await clientViaServiceAccount(
+      ServiceAccountCredentials.fromJson(jsonData),
+      ['https://www.googleapis.com/auth/firebase.messaging'],
+    );
+
+    final accessToken = client.credentials.accessToken.data;
+    print("Access Token $accessToken");
+
+    client.close();
+
+    //Send notification via FCM HTTP v1 endpoint
+    final projectId = jsonData['project_id'];
+    final url =
+        'https://fcm.googleapis.com/v1/projects/$projectId/messages:send';
+
+    final message = {
+      "message": {
+        "token": fcmToken,
+        "notification": {
+          "title": title,
+          "body": body,
+        },
+        "data": {
+          "click_action": "FLUTTER_NOTIFICATION_CLICK",
+          "user_id": userId,
+        },
+      }
+    };
+
+    final res = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode(message),
+    );
+
+    print('✅ FCM response: ${res.body}');
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 

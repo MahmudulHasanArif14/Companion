@@ -1,16 +1,25 @@
+
+import 'package:companion/Auth/auth_helper.dart';
 import 'package:companion/Providers/journey_provider.dart';
 import 'package:companion/Screens/places_screen.dart';
+import 'package:companion/Screens/settings.dart';
 import 'package:companion/Services/notification_service.dart';
+import 'package:companion/core/utils/constant.dart';
+import 'package:companion/database/database_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../Services/geolocation.dart';
-import '../Services/get_Service_key.dart';
+import '../core/utils/maps_theme_manager.dart';
+import '../models/location.dart';
+import '../widgets/custom_progress_item.dart';
+import '../widgets/custom_userInfo_tile.dart';
 import 'add_journey.dart';
 import 'companionsscreen.dart';
 import 'journey_viewers.dart';
@@ -25,7 +34,7 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> {
   GoogleMapController? _mapController;
-  LatLng _center = const LatLng(24.9, 22.3);
+
   String _address = 'Fetching location...';
   bool _isLoading = true;
   Marker? _currentLocationMarker;
@@ -35,11 +44,28 @@ class _DashboardState extends State<Dashboard> {
   final TextEditingController _searchController = TextEditingController();
   final Map<String, Marker> _markers = {};
   final Set<String> _allowedUserIds = {};
-  late JourneyProvider _journeyProvider;
   bool _isDisposed = false;
+  String lastName = "";
 
-  String _selectedLocation = 'Kyouma';
-  final List<String> _locations = ['Kyouma','Arif','Dhaka'];
+  bool isProfileComplete=false;
+
+
+  final List<Locate> _locations = [
+    Locate(
+        locationName: "University",  lat: 24.86928,
+      lng: 91.80473),
+    Locate(locationName: "Home", lat: 24.9, lng: 91.8),
+    Locate(locationName: "Work", lat: 24.76, lng: 92.8),
+
+
+
+  ];
+
+  late Locate _selectedLocation = _locations.first;
+
+
+
+ LatLng _center=LatLng(24.86928, 91.80473);
 
   @override
   void initState() {
@@ -48,13 +74,54 @@ class _DashboardState extends State<Dashboard> {
   }
 
   void _initializeApp() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      _journeyProvider = Provider.of<JourneyProvider>(context, listen: false);
       NotificationService().registerDeviceToken();
+      Provider.of<DatabaseHelperProvider>(context,listen: false).fetchUserInfo();
+
+      _selectedLocation = _locations.first;
+
+      NotificationService().registerDeviceToken();
+
+
+
+
+
+
+
+
+
+
+
+
+
+      final nameFromMeta = widget.user?.userMetadata?['name'];
+      final Map<String, dynamic>? profile = await _getUserProfile(widget.user!.id);
+
+      if (nameFromMeta != null &&
+          nameFromMeta is String &&
+          nameFromMeta.trim().isNotEmpty) {
+       final splitName = nameFromMeta.trim().split(' ').last;
+       lastName = capitalize(splitName);
+      }else{
+       final String fullName= profile?['full_name'];
+       final splitName=fullName.trim().split(' ').last;
+       lastName=capitalize(splitName);
+      }
+
+      if (profile != null) {
+
+      }
+
     });
     _getCurrentAddressName();
     _loadFriendsAndListen();
+  }
+
+
+  String capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
   }
 
   @override
@@ -111,7 +178,7 @@ class _DashboardState extends State<Dashboard> {
         'latitude': _currentCoordinates!.latitude,
         'longitude': _currentCoordinates!.longitude,
         'updated_at': DateTime.now().toIso8601String(),
-      });
+      },onConflict: ("user_id"));
     } catch (e) {
       if (kDebugMode) {
         print('Error updating user location in database: $e');
@@ -403,7 +470,7 @@ class _DashboardState extends State<Dashboard> {
       'latitude': latLng.latitude,
       'longitude': latLng.longitude,
       'updated_at': DateTime.now().toIso8601String(),
-    });
+    },onConflict: ("user_id"));
   }
 
   void _startLocationStream(String userId) {
@@ -417,7 +484,7 @@ class _DashboardState extends State<Dashboard> {
           'latitude': newLatLng.latitude,
           'longitude': newLatLng.longitude,
           'updated_at': DateTime.now().toIso8601String(),
-        });
+        },onConflict: ("user_id"));
       } catch (e) {
         if (kDebugMode) {
           print('Error updating location stream: $e');
@@ -504,18 +571,22 @@ class _DashboardState extends State<Dashboard> {
           _buildTopCenterDropdown(),
           _buildTopRightMailButton(),
           _buildBottomRightActionButtons(),
-          _buildDraggableBottomSheet(),
+          _buildDraggableBottomSheet(lastName),
         ],
       ),
     );
   }
 
+
+
   Widget _buildGoogleMap() {
+
     return GoogleMap(
       initialCameraPosition: CameraPosition(target: _center, zoom: 14),
       onMapCreated: (GoogleMapController controller) {
         _mapController = controller;
       },
+      style: MapsThemeManager.getMapStyle(context),
       markers: _currentLocationMarker != null
           ? {..._markers.values, _currentLocationMarker!}
           : _markers.values.toSet(),
@@ -552,10 +623,19 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Future<void> _onSettingsPressed() async {
-    final String serviceKey = await GetServiceKey().getServiceKey();
-    if (kDebugMode) {
-      print('Service Key: $serviceKey');
-    }
+    // final String serviceKey = await GetServiceKey().getServiceKey();
+    // if (kDebugMode) {
+    //   print('Service Key: $serviceKey');
+    // }
+
+
+
+      Navigator.push(context, MaterialPageRoute(builder: (context)=>SettingPage(user: widget.user!)));
+
+
+    //await NotificationService().sendPushNotification(OauthHelper.currentUser()!.id, title: "Notification Send Success", body: "Hey there! This is a test notification.");
+
+
   }
 
   Widget _buildTopCenterDropdown() {
@@ -566,25 +646,31 @@ class _DashboardState extends State<Dashboard> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.getCardColor(context),
           borderRadius: BorderRadius.circular(20),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
+          boxShadow:  [BoxShadow(color: Colors.black12, blurRadius: 5)],
         ),
         child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
+          child: DropdownButton<Locate>(
+            dropdownColor: AppColors.getCardColor(context),
             value: _selectedLocation,
             isExpanded: true,
             icon: const Icon(Icons.keyboard_arrow_down),
-            items: _locations.map((String location) {
-              return DropdownMenuItem<String>(
-                value: location,
-                child: Text(location),
+            items: _locations.map((loc) {
+              return DropdownMenuItem<Locate>(
+                value: loc,
+                child: Text(loc.locationName,style: TextStyle(
+                  color: AppColors.textPrimaryColor(context),
+                ),),
               );
             }).toList(),
-            onChanged: (String? newValue) {
+            onChanged: (Locate? newValue) {
               if (newValue != null) {
                 setState(() {
                   _selectedLocation = newValue;
+                  _center = LatLng(_selectedLocation.lat, _selectedLocation.lng);
+
+
                 });
               }
             },
@@ -601,7 +687,7 @@ class _DashboardState extends State<Dashboard> {
       child: IconButton(
         icon: const Icon(Icons.mail_outline, size: 30, color: Colors.black87),
         onPressed: () {
-          // TODO: Implement mail functionality
+
         },
       ),
     );
@@ -655,7 +741,7 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildDraggableBottomSheet() {
+  Widget _buildDraggableBottomSheet(String lastName) {
     return DraggableScrollableSheet(
       initialChildSize: 0.3,
       minChildSize: 0.2,
@@ -663,17 +749,18 @@ class _DashboardState extends State<Dashboard> {
       builder: (BuildContext context, ScrollController scrollController) {
         return Container(
           padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration:  BoxDecoration(
+            color: AppColors.getCardColor(context),
             borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
             boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
           ),
           child: ListView(
             controller: scrollController,
             children: [
-              _buildAccountSetupCard(),
+              if(!isProfileComplete)
+              _buildAccountSetupCard()??const SizedBox(),
               const SizedBox(height: 20),
-              _buildUserInfoTile(),
+              buildUserInfoTile(lastName,context),
               const SizedBox(height: 20),
               _buildMenuOptions(),
             ],
@@ -683,7 +770,22 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  Widget _buildAccountSetupCard() {
+  Widget? _buildAccountSetupCard() {
+    final provider=Provider.of<DatabaseHelperProvider>(context);
+    final profileData=provider.userInfo;
+    final avatarLink=profileData?["avatar_url"];
+    final phoneNo=profileData?["phone"];
+    final isAvatarPresent=(avatarLink!=null && avatarLink.toString().isNotEmpty) ? true:false;
+    final isPhonePresent=(phoneNo!=null && phoneNo.toString().isNotEmpty) ? true:false;
+
+
+    if(!isAvatarPresent && !isPhonePresent) {
+      isProfileComplete=true;
+      return null;
+    }
+
+
+
     return Card(
       color: const Color(0xFF220046),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -701,65 +803,49 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             const SizedBox(height: 8),
+           if(!isAvatarPresent && !isPhonePresent)
             Text(
               '0/2 complete',
               style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
             ),
+            if(isAvatarPresent && !isPhonePresent || !isAvatarPresent && isPhonePresent)
+              Text(
+                '1/2 complete',
+                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
+              ),
+            if(isAvatarPresent && isPhonePresent)
+              Text(
+                '2/2 complete',
+                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
+              ),
             const SizedBox(height: 12),
-            _buildProgressIndicator(),
+            // Progress Bar
+            buildProgressIndicator(context),
             const SizedBox(height: 8),
-            _buildProgressItem(),
+            buildProgressItem(context,() async {
+
+
+              //Update
+              setState(() {
+
+
+                  isProfileComplete=true;
+
+                });
+
+
+            }),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProgressIndicator() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: LinearProgressIndicator(
-        value: 0.0,
-        color: Colors.yellow[600],
-        backgroundColor: Colors.white24,
-        minHeight: 8,
-      ),
-    );
-  }
 
-  Widget _buildProgressItem() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Add a profile photo',
-          style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14),
-        ),
-        const Icon(Icons.close, color: Colors.white70),
-      ],
-    );
-  }
 
-  Widget _buildUserInfoTile() {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.blue[200],
-        child: const Text(
-          'H',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ),
-      title: const Text(
-        'Arif',
-        style: TextStyle(fontWeight: FontWeight.w600),
-      ),
-      subtitle: const Text(
-        'Battery optimization on\nSince 4:19 pm',
-        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500),
-      ),
-      trailing: const Icon(Icons.error_outline, color: Colors.red),
-    );
-  }
+
+
+
 
   Widget _buildMenuOptions() {
     return Column(
@@ -801,7 +887,7 @@ class _DashboardState extends State<Dashboard> {
     double iconSize = 24,
   }) {
     return ListTile(
-      leading: Icon(icon, color: Colors.deepPurple, size: iconSize),
+      leading: Icon(icon, color:AppColors.getIconColor(context), size: iconSize),
       title: Text(title),
       onTap: onTap,
     );

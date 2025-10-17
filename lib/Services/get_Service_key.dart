@@ -11,6 +11,9 @@ class GetServiceKey {
     final jsonString = await rootBundle.loadString('assets/images/credentials.json');
     final jsonData = jsonDecode(jsonString);
 
+
+
+
     // Authenticate and get OAuth2 token
     final client = await clientViaServiceAccount(
       ServiceAccountCredentials.fromJson(jsonData),

@@ -1,5 +1,6 @@
 import 'package:companion/Auth/auth_helper.dart';
 import 'package:companion/Screens/pending_friend_req.dart';
+import 'package:companion/core/utils/constant.dart';
 import 'package:flutter/material.dart';
 import 'add_companion.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -111,23 +112,26 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
-        leading: const SizedBox(),
-        title: const Text(
+        automaticallyImplyLeading: true,
+        leading: IconButton(onPressed: (){
+          Navigator.pop(context);
+        }, icon: Icon(Icons.arrow_back, color: AppColors.getAppBarColor(context))),
+        animateColor: true,
+        title:  Text(
           'Companions',
           style: TextStyle(
-            color: Colors.black,
+            color:AppColors.textPrimaryColor(context),
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
         ),
-        centerTitle: false,
+        centerTitle: true,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.black),
+              icon:  Icon(Icons.more_vert, color: AppColors.getAppBarColor(context)),
               onSelected: (value) {
                 if (value == 'Pending Requests') {
                   Navigator.push(
@@ -290,6 +294,7 @@ class _CompanionsScreenState extends State<CompanionsScreen> {
           )
         ],
       ),
+     
     );
   }
 }

@@ -18,7 +18,10 @@ class _LandingPageState extends State<LandingPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _navigateToLoginPage());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigateToLoginPage();
+
+    });
   }
 
   // Navigating to Login Page or dashboard logic
@@ -29,8 +32,13 @@ class _LandingPageState extends State<LandingPage> {
 
     await Future.delayed(const Duration(seconds: 1));
 
+
     if (!mounted) return;
+
+
+
     try {
+
       final isLoggedIn = OauthHelper.isUserLoggedIn();
       final Widget destination = isLoggedIn
           ? HomePage(user: OauthHelper.currentUser()!)

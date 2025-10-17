@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:companion/Auth/auth_helper.dart';
+import 'package:companion/Screens/dashboard.dart';
 import 'package:companion/models/instruction.dart';
 import 'package:companion/widgets/custom_snackbar.dart';
 import 'package:flutter/material.dart';
@@ -133,12 +135,12 @@ class _JourneyViewersState extends State<JourneyViewers> {
         });
 
         if (_isViewerMode) {
-          debugPrint("👀 Viewer mode activated for journey: ${widget.journeyId}");
+          debugPrint("Viewer mode activated for journey: ${widget.journeyId}");
           await _startViewerPresence();
           await _setupJourneyRealtimeUpdates();
           await _startViewerLocationUpdates();
         } else {
-          debugPrint("👤 Owner mode for journey: ${widget.journeyId}");
+          debugPrint(" Owner mode for journey: ${widget.journeyId}");
         }
       } catch (e) {
         debugPrint("Error checking viewer mode: $e");
@@ -166,11 +168,11 @@ class _JourneyViewersState extends State<JourneyViewers> {
         },
       ).subscribe((status, error) {
         if (status == RealtimeSubscribeStatus.subscribed) {
-          debugPrint("🔔 Real-time journey subscription started");
+          debugPrint(" Real-time journey subscription started");
         } else if (status == RealtimeSubscribeStatus.timedOut) {
-          debugPrint("❌ Journey real-time subscription timed out");
+          debugPrint(" Journey real-time subscription timed out");
         } else if (error != null) {
-          debugPrint("❌ Journey real-time subscription error: $error");
+          debugPrint(" Journey real-time subscription error: $error");
         }
       });
     } catch (e) {
@@ -205,7 +207,7 @@ class _JourneyViewersState extends State<JourneyViewers> {
       _currentCompanionLocation = newLocation;
     });
 
-    debugPrint("📍 Companion location updated: $newLocation");
+    debugPrint(" Companion location updated: $newLocation");
 
     // Update marker based on travel mode
     if (widget.travelMode == "driving") {
@@ -335,6 +337,13 @@ class _JourneyViewersState extends State<JourneyViewers> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
+            },
+            child: const Text("Cancel"),
+          ),
+
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
               _navigateToHomePage();
             },
             child: const Text("OK"),
@@ -346,7 +355,11 @@ class _JourneyViewersState extends State<JourneyViewers> {
 
   void _navigateToHomePage() {
     // Navigate to home page and remove all routes
-    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context)=>Dashboard(user: OauthHelper.currentUser())),
+          (Route<dynamic> route) => false,
+    );
+
+
   }
 
   void _stopViewerLocationUpdates() {
@@ -788,11 +801,11 @@ class _JourneyViewersState extends State<JourneyViewers> {
         _checkForNextInstruction(newPos);
       });
 
-      debugPrint("✅ Live tracking started successfully");
+      debugPrint(" Live tracking started successfully");
 
     } catch (e) {
       _trackingStarted = false;
-      debugPrint("❌ Error starting live tracking: $e");
+      debugPrint(" Error starting live tracking: $e");
       if (mounted) setState(() => isLoading = false);
     }
   }
@@ -803,7 +816,7 @@ class _JourneyViewersState extends State<JourneyViewers> {
       return;
     }
 
-    debugPrint("📍 Position update: $newPos");
+    debugPrint(" Position update: $newPos");
 
     if (widget.travelMode == "driving") {
       _updateCarPosition(newPos);
@@ -928,12 +941,12 @@ class _JourneyViewersState extends State<JourneyViewers> {
 
   void _speakInstruction(Instruction instruction, int index) async {
     try {
-      debugPrint("🗣️ Speaking instruction $index: ${instruction.text}");
+      debugPrint(" Speaking instruction $index: ${instruction.text}");
       await ttsController.speak(instruction.text);
       _spokenInstructions.add(index);
       _lastInstructionTime = DateTime.now();
     } catch (e) {
-      debugPrint("❌ Failed to speak instruction $index: $e");
+      debugPrint(" Failed to speak instruction $index: $e");
       _spokenInstructions.remove(index);
     }
   }

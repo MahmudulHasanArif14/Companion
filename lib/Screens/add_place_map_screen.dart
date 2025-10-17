@@ -18,9 +18,9 @@ class AddPlaceMapScreen extends StatefulWidget {
 
 class _AddPlaceMapScreenState extends State<AddPlaceMapScreen> {
   GoogleMapController? mapController;
-  LatLng _selectedLocation = const LatLng(24.8949, 91.8687); // default: Sylhet
+  LatLng _selectedLocation = const LatLng(24.8949, 91.8687);
   String _address = "";
-  double _radius = 300; // in meters
+  double _radius = 300;
   final TextEditingController _nameController = TextEditingController();
 
   @override
@@ -67,7 +67,6 @@ class _AddPlaceMapScreenState extends State<AddPlaceMapScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              // TODO: Save place to backend or local storage
               Navigator.pop(context);
             },
             child: const Text("Save", style: TextStyle(color: Colors.purple)),
@@ -76,7 +75,6 @@ class _AddPlaceMapScreenState extends State<AddPlaceMapScreen> {
       ),
       body: Column(
         children: [
-          // Place name field
           Padding(
             padding: const EdgeInsets.all(12),
             child: TextField(

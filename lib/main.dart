@@ -1,4 +1,5 @@
-import 'package:companion/test.dart';
+import 'package:app_links/app_links.dart';
+import 'package:companion/Auth/auth_helper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -16,19 +17,18 @@ import 'Services/notification_service.dart';
 import 'database/database_helper.dart';
 import 'firebase_options.dart';
 
-
-
-
-
 @pragma('vm:entry-point')
 Future<void> msgHandler(RemoteMessage msg) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 }
+
+// Global navigator key for deep link navigation anywhere
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // loading the credential data
   await dotenv.load(fileName: ".env");
 
   final supabaseUrl = dotenv.env['SUPABASE_URL'];
@@ -39,25 +39,18 @@ Future<void> main() async {
 
   FirebaseMessaging.onBackgroundMessage(msgHandler);
   BackgroundJourneyService().initialize();
-
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
-  runApp(
 
+  runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => ThemeProvider()),
-         ChangeNotifierProvider(
-           create: (context) => ProfileImageProvider(context),
-         ),
-        ChangeNotifierProvider(create: (context) => DatabaseHelperProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (context) => ProfileImageProvider(context)),
+        ChangeNotifierProvider(create: (_) => DatabaseHelperProvider()),
         ChangeNotifierProvider(create: (_) => JourneyProvider()),
-        // ChangeNotifierProvider(create: (_) => NotificationProvider()),
-
       ],
       child: const MyApp(),
     ),
-
-
   );
 }
 
@@ -69,101 +62,56 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-
-  Future<void>? _notificationInitialization;
-
   @override
   void initState() {
     super.initState();
-    _notificationInitialization = initializeNotification();
+
+    // Initialize notifications and deep links AFTER the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initializeNotificationsAndDeepLinks();
+    });
   }
 
-  Future<void> initializeNotification() async {
+  Future<void> _initializeNotificationsAndDeepLinks() async {
     try {
       final notificationService = NotificationService();
-      await notificationService.initialize(context);
-
-
-
+      // Use navigatorKey.currentContext so context exists
+      await notificationService.initialize(navigatorKey.currentContext!);
+      // Configure deep links
+      OauthHelper.configDeepLink();
     } catch (e) {
-      debugPrint('Notification initialization failed: $e');
+      debugPrint('Notification / deep link initialization failed: $e');
     }
   }
 
-
-
-
   @override
   Widget build(BuildContext context) {
-    print("files are ${dotenv.env}");
-    return FutureBuilder(
-      future: Future.wait([
-        _notificationInitialization ?? Future.value(),
-      ]),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.hasError) {
-            return MaterialApp(
-              debugShowCheckedModeBanner: false,
-              home: Scaffold(
-                body: Center(
-                  child: Text('Initialization error: ${snapshot.error}'),
-                ),
-              ),
-            );
-          }
-          return Consumer<ThemeProvider>(
-            builder: (context, themeProvider, child) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                title: 'Companion',
-                themeMode: themeProvider.themeMode,
-                theme: ThemeData(
-                  brightness: Brightness.light,
-                  colorScheme: ColorScheme.fromSeed(
-                    seedColor: Colors.deepPurple,
-                    brightness: Brightness.light,
-                  ),
-                  useMaterial3: true,
-                  fontFamily: kIsWeb ? 'Arial' : null,
-                ),
-                darkTheme: ThemeData(
-                  brightness: Brightness.dark,
-                  colorScheme: ColorScheme.fromSeed(
-                    seedColor: Colors.deepPurple,
-                    brightness: Brightness.dark,
-                  ),
-                  useMaterial3: true,
-                  fontFamily: kIsWeb ? 'Arial' : null,
-                ),
-                home: LandingPage(),
-                // home: MyHomePage(),
-              );
-            },
-          );
-        }
-        // Show a loading screen while initializing
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          home: Scaffold(
-            body: Container(
-              decoration: BoxDecoration(
-                color: Color(0xFF097782),
-              ),
-              child: Center(
-                child:  Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/images/logo.png', width: 200),
-                    SizedBox(height: 16),
-                    CircularProgressIndicator(),
-                    SizedBox(height: 8),
-                    Text('Initializing Companion...', style: TextStyle(fontSize: 16,color: Colors.white)),
-                  ],
-                ),
-              ),
+          navigatorKey: navigatorKey,
+          title: 'Companion',
+          themeMode: themeProvider.themeMode,
+          theme: ThemeData(
+            brightness: Brightness.light,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.deepPurple,
+              brightness: Brightness.light,
             ),
+            useMaterial3: true,
+            fontFamily: kIsWeb ? 'Arial' : null,
           ),
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.deepPurple,
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+            fontFamily: kIsWeb ? 'Arial' : null,
+          ),
+          home: const LandingPage(),
         );
       },
     );

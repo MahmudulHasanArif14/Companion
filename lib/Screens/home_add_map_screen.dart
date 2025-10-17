@@ -117,193 +117,209 @@ class _HomeAddMapScreenState extends State<HomeAddMapScreen> {
     final screenSize = MediaQuery.of(context).size;
     final topSectionHeight = screenSize.height * (1 - _mapHeightRatio);
 
-    return Scaffold(
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-        children: [
-          // Top container with search
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutQuart,
-            height: topSectionHeight,
-            width: screenSize.width,
-            decoration: const BoxDecoration(color: Color(0xFF3267E3)),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              child: Column(
+    return SafeArea(
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        backgroundColor: Colors.white,
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+          children: [
+            // Top container with search
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutQuart,
+              height: topSectionHeight,
+              width: screenSize.width,
+              decoration: const BoxDecoration(color: Color(0xFF3267E3)),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                child: Column(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Text(
+                        "Add your home",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    TypeAheadField<Placemark>(
+                      controller: _searchController,
+                      //suggestion will fetch after this time
+                      debounceDuration: const Duration(milliseconds: 100),
+                      builder: (context, controller, focusNode) {
+                        return TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Search for address...',
+                            hintStyle: const TextStyle(color: Colors.white70),
+                            border: InputBorder.none,
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.location_searching_outlined, color: Colors.white),
+                              onPressed: () async {
+                              final Position? currentLocation= await  LocationHelper().determinePosition(context) ;
+                                final Placemark? placeName= await  LocationHelper().reverseGeocode(LatLng(currentLocation!.latitude, currentLocation.longitude));
+                                _searchController.text="${placeName!.name ?? ''},${placeName.street ?? ''},${placeName.thoroughfare ?? ''}, ${placeName.subThoroughfare ?? ''},${placeName.locality ?? ''}, ${placeName.administrativeArea ?? ''}, ${placeName.country ?? ''}";
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      suggestionsCallback: _getPlaceSuggestions,
+                      itemBuilder: (context, Placemark suggestion) {
+                        return ListTile(
+                          tileColor: Colors.indigo[300],
+                          leading: const Icon(Icons.location_on,color: Colors.black,),
+                          title: Text(
+                            suggestion.street?.isNotEmpty == true && suggestion.thoroughfare!.isNotEmpty==true
+                                ? '${suggestion.street!},${suggestion.thoroughfare!},${suggestion.locality!}'
+                                : suggestion.name?.isNotEmpty == true
+                                ? suggestion.name!
+                                : 'Unknown location',
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                          subtitle: Text(
+                            '${suggestion.locality}, ${suggestion.administrativeArea}',
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                        );
+                      },
+                      onSelected: (Placemark selected) async {
+                        try {
+                          List<Location> locations = await locationFromAddress(
+                              '${selected.street}, ${selected.locality}, ${selected.administrativeArea}, ${selected.country}'
+                          );
+                          if (locations.isNotEmpty) {
+                            await updateLocation(
+                              LatLng(locations.first.latitude, locations.first.longitude),
+                              updateCamera: true,
+                            );
+                          }
+                        } catch (e) {
+                          setState(() => address = 'Error finding location');
+                        }
+                      },
+                      emptyBuilder: (context) => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text('No locations found',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                      loadingBuilder: (context) => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                      hideOnEmpty: true,
+                      hideOnLoading: true,
+                      hideOnError: true,
+                      hideOnSelect: true,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      address,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      
+            // Drag handle
+            GestureDetector(
+              onVerticalDragUpdate: (details) {
+                _updateMapHeight(1 - (details.globalPosition.dy / screenSize.height));
+              },
+              child: AnimatedContainer(
+                width: screenSize.width,
+                color: const Color(0xFF2E004C),
+                padding: const EdgeInsets.all(10),
+                duration: const Duration(milliseconds: 200),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white60,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'Drag up/down to resize map',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      
+            // Map section
+            Expanded(
+              child: Stack(
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: Text(
-                      "Add your home",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                  GoogleMap(
+                    initialCameraPosition: CameraPosition(target: _center, zoom: 14),
+                    circles: {
+                      Circle(
+                        circleId: const CircleId("Current Location"),
+                        center: _center,
+                        radius: 300,
+                        fillColor: Colors.blue.withOpacity(0.3),
+                        strokeColor: Colors.blue,
+                        strokeWidth: 2,
+                      ),
+                    },
+                    onMapCreated: (controller) => mapController = controller,
+                    markers: _currentLocationMarker != null ? {_currentLocationMarker!} : {},
+                    zoomControlsEnabled: false,
+                    myLocationEnabled: true,
+                  ),
+
+                  Positioned(
+                    bottom: 16,
+                    left: 16,
+                    right: 16,
+                    child: SafeArea(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFB93A),
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          elevation: 4,
+                        ),
+                        onPressed: () {
+                          debugPrint("Saved location at $_center\nAddress: $address");
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (context) => HomePage(user: widget.user)),
+                                (Route<dynamic> route) => false,
+                          );
+                        },
+                        child: const Text(
+                          "Save Location",
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ),
-                  TypeAheadField<Placemark>(
-                    controller: _searchController,
-                    //suggestion will fetch after this time
-                    debounceDuration: const Duration(milliseconds: 100),
-                    builder: (context, controller, focusNode) {
-                      return TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText: 'Search for address...',
-                          hintStyle: const TextStyle(color: Colors.white70),
-                          border: InputBorder.none,
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.search, color: Colors.white),
-                            onPressed: () {},
-                          ),
-                        ),
-                      );
-                    },
-                    suggestionsCallback: _getPlaceSuggestions,
-                    itemBuilder: (context, Placemark suggestion) {
-                      return ListTile(
-                        leading: const Icon(Icons.location_on),
-                        title: Text(
-                          suggestion.street?.isNotEmpty == true && suggestion.thoroughfare!.isNotEmpty==true
-                              ? '${suggestion.street!},${suggestion.thoroughfare!},${suggestion.locality!}'
-                              : suggestion.name?.isNotEmpty == true
-                              ? suggestion.name!
-                              : 'Unknown location',
-                          style: const TextStyle(color: Colors.black),
-                        ),
-                        subtitle: Text(
-                          '${suggestion.locality}, ${suggestion.administrativeArea}',
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      );
-                    },
-                    onSelected: (Placemark selected) async {
-                      try {
-                        List<Location> locations = await locationFromAddress(
-                            '${selected.street}, ${selected.locality}, ${selected.administrativeArea}, ${selected.country}'
-                        );
-                        if (locations.isNotEmpty) {
-                          await updateLocation(
-                            LatLng(locations.first.latitude, locations.first.longitude),
-                            updateCamera: true,
-                          );
-                        }
-                      } catch (e) {
-                        setState(() => address = 'Error finding location');
-                      }
-                    },
-                    emptyBuilder: (context) => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('No locations found',
-                          style: TextStyle(color: Colors.black)),
-                    ),
-                    loadingBuilder: (context) => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: CircularProgressIndicator(),
-                    ),
-                    hideOnEmpty: true,
-                    hideOnLoading: true,
-                    hideOnError: true,
-                    hideOnSelect: true,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    address,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
                 ],
               ),
             ),
-          ),
+      
 
-          // Drag handle
-          GestureDetector(
-            onVerticalDragUpdate: (details) {
-              _updateMapHeight(1 - (details.globalPosition.dy / screenSize.height));
-            },
-            child: AnimatedContainer(
-              width: screenSize.width,
-              color: const Color(0xFF2E004C),
-              padding: const EdgeInsets.all(10),
-              duration: const Duration(milliseconds: 200),
-              child: Column(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white60,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    'Drag up/down to resize map',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Map section
-          Expanded(
-            child: GoogleMap(
-
-              initialCameraPosition: CameraPosition(target: _center, zoom: 14),
-              circles: {
-                Circle(
-                  circleId: const CircleId("Current Location"),
-                  center: _center,
-                  radius: 300,
-                  fillColor: Colors.blue.withOpacity(0.3),
-                  strokeColor: Colors.blue,
-                  strokeWidth: 2,
-                ),
-              },
-              onMapCreated: (controller) => mapController = controller,
-              markers: _currentLocationMarker != null ? {_currentLocationMarker!} : {},
-              zoomControlsEnabled: false,
-              myLocationEnabled: true,
-            ),
-          ),
-
-          // Save button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: SizedBox(
-              width: screenSize.width,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFB93A),
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-                onPressed: () {
-                  debugPrint("Saved location at $_center\nAddress: $address");
-                  // Add your save logic here
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => HomePage(user: widget.user)),
-                        (Route<dynamic> route) => false,
-                  );
-
-                  },
-                child: const Text("Save Location"),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

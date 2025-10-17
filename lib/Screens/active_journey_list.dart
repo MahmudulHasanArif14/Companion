@@ -6,6 +6,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../Services/geolocation.dart';
+import '../Services/notification_service.dart';
+import '../core/utils/constant.dart';
 import '../widgets/custom_snackbar.dart';
 import 'journey_viewers.dart';
 
@@ -58,13 +60,13 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
   void _initializeStreams() {
     final currentUserId = OauthHelper.currentUser()!.id;
 
-    // Stream 1: Watch for changes in ride_viewer table
-    _rideViewerStreamSubscription = supabase
-        .from('ride_viewer')
-        .stream(primaryKey: ['id'])
+    //  Watch for changes in ride_viewer table
+    _rideViewerStreamSubscription = supabase.from('ride_viewer').stream(primaryKey: ['id'])
         .eq('viewer_id', currentUserId)
-        .order('created_at', ascending: false)
-        .listen( (List<Map<String, dynamic>> viewerUpdates) {
+        .order('created_at', ascending: true)
+        .listen((List<Map<String, dynamic>> viewerUpdates){
+         //  Return the Whole Table on listen
+
          debugPrint('Ride viewer stream update: ${viewerUpdates.length} records');
         _handleRideViewerUpdates(viewerUpdates);
       },
@@ -73,9 +75,9 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
       },
     );
 
-    // Stream 2: Watch for journey updates (location, status changes)
+    //  Watch for journey from User_journey Table updates (currloc, status changes)
     _journeyStreamSubscription = supabase.from('user_journey').stream(primaryKey: ['id']).eq('status', 'ongoing')
-        .order('updated_at', ascending: false)
+        .order('updated_at', ascending: true)
         .listen((List<Map<String, dynamic>> journeyUpdates) {
         debugPrint('Journey stream update: ${journeyUpdates.length} records');
         _handleJourneyUpdates(journeyUpdates);
@@ -85,12 +87,11 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
       },
     );
 
-    // Stream 3: Watch for profile updates (name, avatar changes)
+    //  Watch for profile updates (name, avatar changes)
     _profilesStreamSubscription = supabase
         .from('profiles')
         .stream(primaryKey: ['id'])
-        .listen(
-          (List<Map<String, dynamic>> profileUpdates) {
+        .listen((List<Map<String, dynamic>> profileUpdates) {
         debugPrint('Profile stream update: ${profileUpdates.length} records');
         _handleProfileUpdates(profileUpdates);
       },
@@ -100,35 +101,46 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
     );
   }
 
+
+
+
+
+
   /// Handle ride_viewer table updates (permission changes, new shares, removals)
+  /// Here ViewerUpdates Contain whole Ride_viewer Table Data
   void _handleRideViewerUpdates(List<Map<String, dynamic>> viewerUpdates) async {
-    final currentJourneyIds = _ongoingJourneys
-        .map((j) => j['journey_id'].toString())
-        .toSet();
+    //Removing Duplicate Journeys and adding old journeys to Ongoing Journey
+    final currentJourneyIds = _ongoingJourneys.map((j) => j['journey_id'].toString()).toSet();
+
+
 
     for (final viewerRow in viewerUpdates) {
-      final journeyId = viewerRow['journey_id'].toString();
-      final viewerId = viewerRow['id'].toString();
-      final disallowed = viewerRow['disallowed'] == true;
 
-      // Check if this is a new journey share
+      final journeyId = viewerRow['journey_id'].toString(); //Ride_viewer Table JourneyID
+      final viewerId = viewerRow['id'].toString(); // Ride_viewer Table ViewerID
+      final disallowed = viewerRow['disallowed'] == true; // Ride_viewer Table allow status
+
+
+      // Check if new journey id  is a new journey
       if (!currentJourneyIds.contains(journeyId)) {
         if (!disallowed) {
           debugPrint('New journey shared: $journeyId');
           await _addJourneyToViewerList(viewerRow);
+
         }
       }
+
+
       // Update existing journey permissions
       else {
-        final existingIndex = _ongoingJourneys.indexWhere(
-              (j) => j['journey_id'].toString() == journeyId,
-        );
+        // find the index of the existing journey
+        final existingIndex = _ongoingJourneys.indexWhere((j) => j['journey_id'].toString() == journeyId,);
 
         if (existingIndex != -1) {
           if (disallowed) {
             // Remove from list if disallowed
             _safeSetState(() {
-              _ongoingJourneys.removeAt(existingIndex);
+               _ongoingJourneys.removeAt(existingIndex);
               _applySearchFilter(_searchQuery);
             });
             debugPrint('Journey removed due to disallowed: $journeyId');
@@ -150,12 +162,12 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
   }
 
   /// Handle journey location and status updates
+  /// Here journeyUpdates user_journey table data
   void _handleJourneyUpdates(List<Map<String, dynamic>> journeyUpdates) {
+
     for (final journeyUpdate in journeyUpdates) {
       final journeyId = journeyUpdate['id'].toString();
-      final existingIndex = _ongoingJourneys.indexWhere(
-            (j) => j['journey_id'].toString() == journeyId,
-      );
+      final existingIndex = _ongoingJourneys.indexWhere((j) => j['journey_id'].toString() == journeyId,);
 
       if (existingIndex != -1) {
         _safeSetState(() {
@@ -201,13 +213,12 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
   // DATA MANAGEMENT
   // ============================
 
-  /// Add a new journey to the viewer list
+  /// Add a new journey to the viewer list Actual UI LIST
   Future<void> _addJourneyToViewerList(Map<String, dynamic> viewerRow) async {
     final journeyId = viewerRow['journey_id'];
 
     try {
-      final journeyResponse = await supabase
-          .from('user_journey')
+      final journeyResponse = await supabase.from('user_journey')
           .select('*')
           .eq('id', journeyId)
           .eq('status', 'ongoing')
@@ -215,12 +226,16 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
           .maybeSingle();
 
       if (journeyResponse != null && journeyResponse.isNotEmpty) {
+
+        // Connecting with Profile Table
         final profileResponse = await supabase
             .from('profiles')
             .select('id, username, full_name, avatar_url')
             .eq('id', journeyResponse['user_id'])
             .maybeSingle();
 
+
+        // adding the cross product of Journey_table and profile table
         final newJourney = {
           'journey_id': journeyResponse['id'],
           'user_id': journeyResponse['user_id'],
@@ -248,13 +263,25 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
 
         // Show notification for new journey share
         if (_isMounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${newJourney['full_name']} shared a journey with you!'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
+          if(!mounted)return;
+
+
+
+
+          CustomSnackbar.show(
+            context: context,
+            label: "${newJourney['full_name']} shared a journey with you!",
+            title: "Journey Shared",
+            color: Color(0xE04CAF50),
+            svgColor: Color(0xE0178327),
+            actionLabel: "Tap to View",
+            onAction: (){
+              //On Click the Journey which shared will be visible to the user
+              debugPrint("Tapped on newJourney");
+              _viewJourney(newJourney);
+            }
           );
+
         }
       }
     } catch (e) {
@@ -264,13 +291,9 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
 
   /// Clean up journeys that are no longer in viewer list
   void _cleanupRemovedJourneys(List<Map<String, dynamic>> currentViewerRows) {
-    final currentViewerJourneyIds = currentViewerRows
-        .map((row) => row['journey_id'].toString())
-        .toSet();
+    final currentViewerJourneyIds = currentViewerRows.map((row) => row['journey_id'].toString()).toSet();
 
-    final journeysToRemove = _ongoingJourneys
-        .where((journey) => !currentViewerJourneyIds.contains(journey['journey_id'].toString()))
-        .toList();
+    final journeysToRemove = _ongoingJourneys.where((journey) => !currentViewerJourneyIds.contains(journey['journey_id'].toString())).toList();
 
     if (journeysToRemove.isNotEmpty) {
       _safeSetState(() {
@@ -298,7 +321,8 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
           .from('ride_viewer')
           .select('id, journey_id, disallowed')
           .eq('viewer_id', currentUserId)
-          .eq('disallowed', false);
+          .eq('disallowed', false).order("created_at", ascending: true);
+
 
       debugPrint("Found ${viewerResponse.length} viewer records");
 
@@ -426,12 +450,13 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
           .update({'disallowed': disallowed})
           .eq('id', viewerRowId);
 
-      // Note: The stream will automatically update the UI
+
       _safeSetState(() {
         _updatingViewerId = null;
       });
 
-      if (_isMounted) {
+      if (_isMounted ) {
+        if(!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -462,6 +487,7 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
 
   /// Navigate to journey map view
   Future<void> _viewJourney(Map<String, dynamic> journey) async {
+
 
     final markers=await _createMarkersForJourney(journey);
 
@@ -542,8 +568,6 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
     final pickupLng = journey['pickup_lng'] as double?;
     final destLat = journey['destination_lat'] as double?;
     final destLng = journey['destination_lng'] as double?;
-    final currentLat = journey['current_lat'] as double?;
-    final currentLng = journey['current_lng'] as double?;
     final pickupIcon=await pickup();
     final destination=await destinationIcon();
 
@@ -569,16 +593,7 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
       );
     }
 
-    if (currentLat != null && currentLng != null) {
-      markers.add(
-        Marker(
-          markerId: MarkerId('current_${journey['journey_id']}'),
-          position: LatLng(currentLat, currentLng),
-          infoWindow: const InfoWindow(title: 'Current Location'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        ),
-      );
-    }
+
 
     return markers;
   }
@@ -727,16 +742,15 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon:  Icon(Icons.arrow_back, color: AppColors.getAppBarColor(context)),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Watching Journeys',
+        title:  Text(
+          'Companions Journeys',
           style: TextStyle(
-            color: Colors.black,
+            color: AppColors.textPrimaryColor(context),
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
@@ -744,7 +758,7 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black),
+            icon:  Icon(Icons.refresh, color: AppColors.getAppBarColor(context)),
             onPressed: _fetchOngoingJourneys,
           ),
           // Real-time indicator
@@ -813,7 +827,7 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'You are watching ${_ongoingJourneys.length} ongoing journey${_ongoingJourneys.length > 1 ? 's' : ''} • Live updates active',
+                  'You are watching ${_ongoingJourneys.length} ongoing journey${_ongoingJourneys.length > 1 ? 's' : ''}',
                   style: TextStyle(
                     color: Colors.blue.shade800,
                     fontWeight: FontWeight.w500,
@@ -1077,11 +1091,7 @@ class _JourneyViewersListScreenState extends State<JourneyViewersListScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _fetchOngoingJourneys,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Check Again'),
-            ),
+
           ],
         ),
       ],

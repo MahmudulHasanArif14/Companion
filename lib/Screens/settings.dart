@@ -1,4 +1,6 @@
 
+import 'package:companion/Screens/profile.dart';
+import 'package:companion/Screens/team_member.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../Auth/auth_helper.dart';
 import '../Providers/profile_image_provider.dart';
 import '../Providers/theme_provider.dart';
+import '../database/database_helper.dart';
 import 'login_page.dart';
 import 'onboarding_screen.dart';
 
@@ -28,12 +31,30 @@ class _SettingPageState extends State<SettingPage> {
     super.initState();
 
     userInfo = widget.user;
-    fullName = (userInfo.userMetadata?['name'] ?? 'David').toString().trim();
+
+    final formatName = (userInfo.userMetadata?['name'] ?? 'Anonymous').toString().trim();
+
+    fullName = formatFullName(formatName);
+    Provider.of<DatabaseHelperProvider>(context,listen: false);
+
   }
+
+  String formatFullName(String fullName) {
+    if (fullName.isEmpty) return fullName;
+
+    return fullName.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final height=MediaQuery.of(context).size.height;
+    final provider=Provider.of<DatabaseHelperProvider>(context);
+    final profileData=provider.userInfo;
+    final userName=profileData?["username"] ?? "Anonymous";
 
     return SafeArea(
       child: Scaffold(
@@ -47,6 +68,7 @@ class _SettingPageState extends State<SettingPage> {
                   builder: (ctx, profileProvider, child) {
                     final imageUrl = profileProvider.imageUrl;
                     final isLoading = profileProvider.isUploading;
+
 
                     ImageProvider imageProvider;
                     if (profileProvider.cachedImageBytes != null) {
@@ -118,7 +140,7 @@ class _SettingPageState extends State<SettingPage> {
                         const SizedBox(height: 2),
                         // Position Employee
                         Text(
-                          "arif55555",
+                          userName,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
@@ -136,7 +158,7 @@ class _SettingPageState extends State<SettingPage> {
                   width: 350,
                   child: TextButton(
                     onPressed: () {
-                      //Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage(),),);
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage()));
                     },
                     style: TextButton.styleFrom(
                       backgroundColor: const Color(0xFF3085FE),
@@ -163,12 +185,12 @@ class _SettingPageState extends State<SettingPage> {
                         title: 'My Profile',
                         onTap: () {
                           // Goes to Profile page
-                         /* Navigator.push(
+                          Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => ProfilePage(),
                             ),
-                          );*/
+                          );
 
 
                         },
@@ -178,12 +200,12 @@ class _SettingPageState extends State<SettingPage> {
                         icon: Icons.people_outline,
                         title: 'Team Member',
                         onTap: () {
-                          /*Navigator.push(
+                          Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => TeamMemberPage(),
+                              builder: (context) => TeamDetailsScreen(),
                             ),
-                          );*/
+                          );
                         },
                       ),
                       const Divider(height: 10),
